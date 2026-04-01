@@ -166,7 +166,7 @@ def _parse_sse_data(raw: bytes) -> dict[str, Any] | None:
         result = json.loads(payload)
         if not isinstance(result, dict):
             return None
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
     except (json.JSONDecodeError, ValueError):
         return None
 
