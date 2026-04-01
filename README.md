@@ -2,6 +2,14 @@
 
 Dockerised LibreChat setup with a Stihia guardrail proxy for real-time threat detection.
 
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
+before opening a pull request. This project follows a
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+To report a security vulnerability see [SECURITY.md](SECURITY.md).
+
 ## Third-party licensing
 
 This bundle is designed to run with the official LibreChat images. LibreChat is
