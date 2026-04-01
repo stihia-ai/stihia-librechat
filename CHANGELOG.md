@@ -17,5 +17,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Community health files: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY.
 - GitHub issue and PR templates.
 - CI pipeline (GitHub Actions) with lint, type check, and tests on
-  Python 3.12, 3.13, and 3.14.
-- Dependabot configuration for Python and GitHub Actions dependencies.
+  Python 3.12 and 3.13.
