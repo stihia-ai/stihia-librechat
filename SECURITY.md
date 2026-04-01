@@ -5,7 +5,7 @@
 If you discover a security vulnerability in this project, please report it
 responsibly. **Do not** open a public GitHub issue.
 
-Instead, email **<security@stihia.ai>** with:
+Instead, email **<support@stihia.ai>** with:
 
 - A description of the vulnerability
 - Steps to reproduce the issue
