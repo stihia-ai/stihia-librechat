@@ -132,8 +132,6 @@ returned to the user. Errors are logged to stderr.
 | `LIBRECHAT_RAG_POSTGRES_PASSWORD` | — | Required strong Postgres password for the RAG API pgvector store |
 | `LIBRECHAT_RAG_POSTGRES_PORT` | `5432` | Optional internal Postgres port that the RAG API uses when dialing `vectordb` |
 
-The Compose stack now refuses to start if `LIBRECHAT_RAG_POSTGRES_DB`,
-`LIBRECHAT_RAG_POSTGRES_USER`, or `LIBRECHAT_RAG_POSTGRES_PASSWORD` are missing.
 Set unique production values through your deployment environment or a non-committed
 `.env` file.
 
@@ -144,7 +142,7 @@ The bundled pgvector database image is pinned to `pgvector/pgvector:0.8.2-pg15`
 to avoid drift from `latest` in production deployments while remaining compatible
 with existing PostgreSQL 15 data volumes.
 
-If you later upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuild
+If you upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuild
 the `vectordb_data` volume first. Reusing a PostgreSQL 15 data directory with PostgreSQL 16+
 or 17 will fail at container startup.
 
@@ -153,10 +151,20 @@ or 17 will fail at container startup.
 Run the proxy locally (without Docker):
 
 ```bash
-# Install dependencies (including dev extras)
+# 1. Clone the repo
+git clone git@github.com:stihia-ai/stihia-librechat.git
+
+# 2. Install the `uv` package manager, if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Create and activate Python venv
+uv venv
+source .venv/bin/activate
+
+# 4. Install dependencies (including dev extras)
 uv sync --extra dev
 
-# Start the dev server
+# 5. Start the dev server
 uvicorn stihia_librechat.main:app --reload --port 4005
 ```
 
