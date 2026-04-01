@@ -36,6 +36,12 @@ packages = ["src/stihia_librechat"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
+[tool.uv]
+# reject packages published less than 7 days ago, to avoid security risks
+exclude-newer = "7 days"
+# exempt our own package from the age restriction
+exclude-newer-package = { stihia = "2100-01-01" }
+
 [tool.ruff]
 target-version = "py312"
 line-length = 120
