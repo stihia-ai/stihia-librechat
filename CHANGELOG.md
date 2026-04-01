@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Transparent HTTP proxy with Stihia SenseGuard guardrails for OpenAI,
+- Transparent HTTP proxy with Stihia realtime threat detection for OpenAI,
   Anthropic, and Google Gemini providers.
 - Streaming and non-streaming support with input/output guardrails.
 - Docker Compose stack bundling LibreChat, MongoDB, Meilisearch, RAG API
-  (pgvector), and the Stihia guardrail proxy.
+  (pgvector), and the Stihia AI security proxy.
 - `librechat.yaml` with custom endpoints routing through the proxy.
 - Community health files: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY.
 - GitHub issue and PR templates.

@@ -4,24 +4,24 @@
 [![License](https://img.shields.io/github/license/stihia-ai/stihia-librechat)](LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 
-Dockerised LibreChat setup with a Stihia guardrail proxy for real-time threat detection.
+Dockerised LibreChat setup with a Stihia AI security proxy for real-time threat detection.
 
 ## Vision & Scope
 
-**Goal:** Provide a turnkey, self-hosted LibreChat deployment with built-in AI
-safety guardrails powered by Stihia.
+**Goal:** Provide a turnkey, self-hosted LibreChat deployment with built-in
+real-time threat detection powered by Stihia.
 
 **In scope:**
 
-- Transparent HTTP proxy that applies [Stihia SenseGuard](https://stihia.ai)
-  input/output guardrails to LLM requests.
+- Transparent HTTP proxy that applies [Stihia](https://stihia.ai)
+  real-time threat detection to LLM requests.
 - Docker Compose stack that bundles LibreChat, MongoDB, Meilisearch, RAG API,
-  and the guardrail proxy.
+  and the Stihia AI security proxy.
 - Configuration and deployment documentation.
 
 **Out of scope:**
 
-- The Stihia guardrail engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
+- The Stihia AI security engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
 - LibreChat core development — this repo uses official LibreChat Docker images.
 - Hosting or managed service offerings.
 
@@ -69,15 +69,15 @@ LibreChat is available at **http://localhost:3080**.
 ```
 LibreChat  ──▶  Stihia Proxy (:4005)  ──▶  LLM Provider (OpenAI / Anthropic / Gemini)
                       │
-                      ├─ Input guardrail  (default-input-think)
-                      └─ Output guardrail (default-output)
+                      ├─ Input sensor  (default-input-think)
+                      └─ Output sensor (default-output)
                              │
                              ▼
                         Stihia API
 ```
 
 The proxy is transparent — it forwards HTTP requests as-is to the upstream
-provider while applying Stihia `SenseGuard` guardrails in parallel.
+provider while applying Stihia `SenseGuard` sensors in parallel.
 
 ### Supported providers
 
@@ -90,10 +90,10 @@ provider while applying Stihia `SenseGuard` guardrails in parallel.
 ### Streaming vs non-streaming
 
 - **Streaming**: Uses `SenseGuard.shield()` to wrap the upstream SSE stream.
-  Input guardrails gate the first chunk; output guardrails run on stream completion.
-- **Non-streaming**: Input guard and LLM request run in parallel. If input
+  Input sensors gate the first chunk; output sensors run on stream completion.
+- **Non-streaming**: Input sensors and LLM request run in parallel. If input
   triggers, the LLM response is discarded and an error is returned. Output
-  guardrails run on the complete response before it is returned.
+  sensors run on the complete response before it is returned.
 
 ### Stihia key mapping
 

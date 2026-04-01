@@ -18,7 +18,7 @@
 
 ## Scope
 
-This repository covers the Stihia guardrail proxy and its Docker Compose
+This repository covers the Stihia proxy and its Docker Compose
 deployment. For issues with LibreChat itself, please file at
 [danny-avila/LibreChat](https://github.com/danny-avila/LibreChat). For the
-Stihia guardrail engine (Stihia API and [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package), contact **<support@stihia.ai>**.
+Stihia AI security engine (Stihia API and [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package), contact **<support@stihia.ai>**.
