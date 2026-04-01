@@ -1,0 +1,110 @@
+# Stihia + LibreChat — Docker Compose
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your API keys.
+#   2. Run: docker compose up
+#
+# The stack spins up:
+#   - LibreChat (official image from Docker Hub)
+#   - MongoDB (LibreChat data store)
+#   - Meilisearch (LibreChat search engine)
+#   - RAG API (LibreChat retrieval-augmented generation)
+#   - Stihia Proxy (guardrail proxy between LibreChat and LLM providers)
+
+services:
+  # ---------- LibreChat ----------
+  librechat:
+    image: librechat/librechat:v0.8.4
+    ports:
+      - "3080:3080"
+    depends_on:
+      - mongodb
+      - meilisearch
+      - rag_api
+      - stihia-proxy
+    environment:
+      - HOST=0.0.0.0
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - RAG_PORT=8000
+      - RAG_API_URL=http://rag_api:8000
+    env_file:
+      - .env
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - librechat_images:/app/client/public/images
+      - librechat_logs:/app/api/logs
+    restart: unless-stopped
+
+  # ---------- MongoDB ----------
+  mongodb:
+    image: mongo:7
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+  # ---------- Meilisearch ----------
+  meilisearch:
+    image: getmeili/meilisearch:v1.12.8
+    environment:
+      - MEILI_NO_ANALYTICS=true
+    volumes:
+      - meilisearch_data:/meili_data
+    restart: unless-stopped
+
+  # ---------- PostgreSQL + pgvector (RAG API data store) ----------
+  vectordb:
+    image: pgvector/pgvector:0.8.2-pg15
+    environment:
+      POSTGRES_DB: ${LIBRECHAT_RAG_POSTGRES_DB:?Set LIBRECHAT_RAG_POSTGRES_DB in .env or the deployment environment}
+      POSTGRES_USER: ${LIBRECHAT_RAG_POSTGRES_USER:?Set LIBRECHAT_RAG_POSTGRES_USER in .env or the deployment environment}
+      POSTGRES_PASSWORD: ${LIBRECHAT_RAG_POSTGRES_PASSWORD:?Set LIBRECHAT_RAG_POSTGRES_PASSWORD in .env or the deployment environment}
+    volumes:
+      - vectordb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------- RAG API ----------
+  rag_api:
+    image: ghcr.io/danny-avila/librechat-rag-api-dev-lite:v0.7.3
+    environment:
+      - DB_HOST=vectordb
+      - DB_PORT=${LIBRECHAT_RAG_POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${LIBRECHAT_RAG_POSTGRES_DB:?Set LIBRECHAT_RAG_POSTGRES_DB in .env or the deployment environment}
+      - POSTGRES_USER=${LIBRECHAT_RAG_POSTGRES_USER:?Set LIBRECHAT_RAG_POSTGRES_USER in .env or the deployment environment}
+      - POSTGRES_PASSWORD=${LIBRECHAT_RAG_POSTGRES_PASSWORD:?Set LIBRECHAT_RAG_POSTGRES_PASSWORD in .env or the deployment environment}
+      - RAG_PORT=8000
+    depends_on:
+      vectordb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------- Stihia Guardrail Proxy ----------
+  stihia-proxy:
+    build:
+      context: ../../../
+      dockerfile: backend/services/stihia-librechat/Dockerfile
+    ports:
+      - "4005:4005"
+    environment:
+      - STIHIA_API_KEY=${STIHIA_API_KEY:-}
+      - STIHIA_API_URL=${STIHIA_API_URL:-https://api.stihia.ai}
+      - STIHIA_PROJECT_KEY=${STIHIA_PROJECT_KEY:-librechat}
+      - LOG_LEVEL=${STIHIA_LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mongodb_data:
+  meilisearch_data:
+  vectordb_data:
+  librechat_images:
+  librechat_logs:

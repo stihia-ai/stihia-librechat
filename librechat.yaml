@@ -1,0 +1,69 @@
+# LibreChat custom endpoint configuration
+#
+# Routes LLM requests through the Stihia guardrail proxy.
+# The proxy forwards them to the real provider API while applying
+# Stihia threat-detection guardrails in parallel.
+#
+# Each endpoint sets:
+#   X-Upstream-Base-URL  — the real provider base URL.
+#   X-User-ID            — the LibreChat user who sent the message.
+#   X-Conversation-ID    — the current LibreChat conversation.
+#   X-Message-ID         — the current message ID.
+#
+# Note: The Stihia process key (model name or agent ID) is extracted
+# directly from the request body by the proxy — no header needed.
+
+version: "1.1.7"
+cache: true
+
+endpoints:
+  custom:
+    # ---- OpenAI via Stihia Proxy ----
+    - name: "OpenAI"
+      apiKey: "${OPENAI_API_KEY}"
+      baseURL: "http://stihia-proxy:4005/v1"
+      models:
+        default: ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.3-codex"]
+        fetch: false
+      titleConvo: true
+      titleModel: "gpt-5.4"
+      summarize: false
+      forcePrompt: false
+      modelDisplayLabel: "OpenAI"
+      headers:
+        X-Upstream-Base-URL: "https://api.openai.com"
+        X-User-ID: "{{LIBRECHAT_USER_ID}}"
+        X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
+        X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"
+
+    # ---- Anthropic via Stihia Proxy ----
+    - name: "Anthropic"
+      apiKey: "${ANTHROPIC_API_KEY}"
+      baseURL: "http://stihia-proxy:4005/v1"
+      models:
+        default: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]
+        fetch: false
+      titleConvo: true
+      titleModel: "claude-sonnet-4-6"
+      modelDisplayLabel: "Anthropic"
+      headers:
+        X-Upstream-Base-URL: "https://api.anthropic.com"
+        X-User-ID: "{{LIBRECHAT_USER_ID}}"
+        X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
+        X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"
+
+    # ---- Google Gemini via Stihia Proxy ----
+    - name: "Google"
+      apiKey: "${GOOGLE_GEMINI_API_KEY}"
+      baseURL: "http://stihia-proxy:4005/v1beta"
+      models:
+        default: ["gemini-2.5-flash", "gemini-2.5-pro"]
+        fetch: false
+      titleConvo: true
+      titleModel: "gemini-2.5-flash"
+      modelDisplayLabel: "Google"
+      headers:
+        X-Upstream-Base-URL: "https://generativelanguage.googleapis.com"
+        X-User-ID: "{{LIBRECHAT_USER_ID}}"
+        X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
+        X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"
