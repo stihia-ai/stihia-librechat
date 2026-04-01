@@ -3,6 +3,29 @@
 Thank you for your interest in contributing! This guide explains how to get
 involved and what to expect when you submit a change.
 
+## Project Scope
+
+This repository covers the Stihia guardrail proxy for LibreChat and its
+Docker Compose deployment stack. Contributions that fit this scope are welcome:
+
+- Bug fixes and improvements to the proxy service.
+- New provider adapters or guardrail integrations.
+- Documentation improvements.
+- CI/CD and developer tooling enhancements.
+- Docker and deployment configuration.
+
+The Stihia guardrail engine itself (the Stihia API and the `stihia` Python SDK package) and
+LibreChat core are maintained separately. For issues with those projects,
+please file upstream.
+
+## Response Times
+
+- **Issues:** We aim to triage new issues within **7 days**.
+- **Pull requests:** You can expect an initial review within **14 days**.
+  Complex changes may take longer.
+- **Security reports:** Acknowledged within **3 business days** (see
+  [SECURITY.md](SECURITY.md)).
+
 ## Code of Conduct
 
 This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By
@@ -30,33 +53,36 @@ and describe the use-case you have in mind.
 git clone https://github.com/stihia-ai/stihia-librechat.git
 cd stihia-librechat
 
+# Install uv (if you don't have it)
+# See https://docs.astral.sh/uv/getting-started/installation/
+
 # Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv venv
+source .venv/bin/activate
 
 # Install dependencies (including dev extras)
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 ## Running Tests
 
 ```bash
-pytest tests -v
+uv run pytest tests -v
 ```
 
 ## Linting and Type Checking
 
 ```bash
-ruff check .
-ruff format --check .
-mypy src
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
 ```
 
 Fix auto-fixable lint issues with:
 
 ```bash
-ruff check --fix .
-ruff format .
+uv run ruff check --fix .
+uv run ruff format .
 ```
 
 ## Submitting a Pull Request

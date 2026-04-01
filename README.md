@@ -1,6 +1,29 @@
 # Stihia LibreChat Bundle
 
+[![CI](https://github.com/stihia-ai/stihia-librechat/actions/workflows/ci.yml/badge.svg)](https://github.com/stihia-ai/stihia-librechat/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/stihia-ai/stihia-librechat)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+
 Dockerised LibreChat setup with a Stihia guardrail proxy for real-time threat detection.
+
+## Vision & Scope
+
+**Goal:** Provide a turnkey, self-hosted LibreChat deployment with built-in AI
+safety guardrails powered by Stihia.
+
+**In scope:**
+
+- Transparent HTTP proxy that applies [Stihia SenseGuard](https://stihia.ai)
+  input/output guardrails to LLM requests.
+- Docker Compose stack that bundles LibreChat, MongoDB, Meilisearch, RAG API,
+  and the guardrail proxy.
+- Configuration and deployment documentation.
+
+**Out of scope:**
+
+- The Stihia guardrail engine itself (provided by the Stihia API and wrapped by the `stihia` Python SDK package).
+- LibreChat core development — this repo uses official LibreChat Docker images.
+- Hosting or managed service offerings.
 
 ## Contributing
 
@@ -31,8 +54,6 @@ deployment and does not include LibreChat source code.
 ## Quick start
 
 ```bash
-cd backend/services/stihia-librechat
-
 # 1. Configure your API keys
 cp .env.example .env
 # Edit .env — add your STIHIA_API_KEY, LLM provider keys, and RAG Postgres credentials
@@ -132,15 +153,23 @@ or 17 will fail at container startup.
 Run the proxy locally (without Docker):
 
 ```bash
-cd backend
-uv sync --all-packages --extra dev
-cd services/stihia-librechat
+# Install dependencies (including dev extras)
+uv sync --extra dev
+
+# Start the dev server
 uvicorn stihia_librechat.main:app --reload --port 4005
 ```
 
 Run tests:
 
 ```bash
-cd backend
-uv run pytest services/stihia-librechat/tests -v
+uv run pytest tests -v
+```
+
+Run linting and type checks:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
 ```

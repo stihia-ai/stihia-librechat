@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/stihia-ai/stihia-librechat/blob/main/SECURITY.md
+    about: Report security vulnerabilities privately — do not open a public issue.
+  - name: Support & Questions
+    url: https://github.com/stihia-ai/stihia-librechat/blob/main/SUPPORT.md
+    about: Find out where to get help with using the project.
