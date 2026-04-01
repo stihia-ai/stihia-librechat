@@ -10,7 +10,7 @@ Also provides SSE (Server-Sent Events) chunk-to-text extractors for streaming ou
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 
 def _text_content(content: Any) -> str:
@@ -151,7 +151,7 @@ def gemini_messages(body: dict[str, Any]) -> list[dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_sse_data(raw: bytes) -> dict | None:
+def _parse_sse_data(raw: bytes) -> dict[str, Any] | None:
     """Parse a single SSE line into JSON, or return None.
 
     Expects lines like ``data: {"choices": ...}`` or ``data: [DONE]``.
@@ -166,7 +166,7 @@ def _parse_sse_data(raw: bytes) -> dict | None:
         result = json.loads(payload)
         if not isinstance(result, dict):
             return None
-        return result
+        return cast(dict[str, Any], result)
     except (json.JSONDecodeError, ValueError):
         return None
 
