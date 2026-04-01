@@ -163,7 +163,8 @@ def _parse_sse_data(raw: bytes) -> dict | None:
     if not payload or payload == "[DONE]":
         return None
     try:
-        return json.loads(payload)
+        result: dict[str, object] = json.loads(payload)
+        return result
     except (json.JSONDecodeError, ValueError):
         return None
 
@@ -220,9 +221,9 @@ def anthropic_chunk_text(chunk: bytes) -> str:
     delta = data.get("delta", {})
     delta_type = delta.get("type", "")
     if delta_type == "text_delta":
-        return delta.get("text", "")
+        return str(delta.get("text", ""))
     if delta_type == "input_json_delta":
-        return delta.get("partial_json", "")
+        return str(delta.get("partial_json", ""))
     return ""
 
 

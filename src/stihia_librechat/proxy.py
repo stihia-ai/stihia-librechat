@@ -411,6 +411,9 @@ async def proxy_non_streaming(
         else:
             raise
 
+    if llm_response is None:
+        raise RuntimeError("LLM response unavailable after parallel execution")
+
     resp_headers = dict(llm_response.headers)
     for h in (
         "transfer-encoding",
