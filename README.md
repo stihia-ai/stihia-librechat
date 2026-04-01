@@ -1,6 +1,37 @@
 # Stihia LibreChat Bundle
 
-Dockerised LibreChat setup with a Stihia guardrail proxy for real-time threat detection.
+[![CI](https://github.com/stihia-ai/stihia-librechat/actions/workflows/ci.yml/badge.svg)](https://github.com/stihia-ai/stihia-librechat/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/stihia-ai/stihia-librechat)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+
+Dockerised LibreChat setup with a Stihia AI security proxy for real-time threat detection.
+
+## Vision & Scope
+
+**Goal:** Provide a turnkey, self-hosted LibreChat deployment with built-in
+real-time threat detection powered by Stihia.
+
+**In scope:**
+
+- Transparent HTTP proxy that applies [Stihia](https://stihia.ai)
+  real-time threat detection to LLM requests.
+- Docker Compose stack that bundles LibreChat, MongoDB, Meilisearch, RAG API,
+  and the Stihia AI security proxy.
+- Configuration and deployment documentation.
+
+**Out of scope:**
+
+- The Stihia AI security engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
+- LibreChat core development — this repo uses official LibreChat Docker images.
+- Hosting or managed service offerings.
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
+before opening a pull request. This project follows a
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+To report a security vulnerability see [SECURITY.md](SECURITY.md).
 
 ## Third-party licensing
 
@@ -23,8 +54,6 @@ deployment and does not include LibreChat source code.
 ## Quick start
 
 ```bash
-cd backend/services/stihia-librechat
-
 # 1. Configure your API keys
 cp .env.example .env
 # Edit .env — add your STIHIA_API_KEY, LLM provider keys, and RAG Postgres credentials
@@ -40,15 +69,15 @@ LibreChat is available at **http://localhost:3080**.
 ```
 LibreChat  ──▶  Stihia Proxy (:4005)  ──▶  LLM Provider (OpenAI / Anthropic / Gemini)
                       │
-                      ├─ Input guardrail  (default-input-think)
-                      └─ Output guardrail (default-output)
+                      ├─ Input sensor  (default-input-think)
+                      └─ Output sensor (default-output)
                              │
                              ▼
                         Stihia API
 ```
 
 The proxy is transparent — it forwards HTTP requests as-is to the upstream
-provider while applying Stihia `SenseGuard` guardrails in parallel.
+provider while applying Stihia `SenseGuard` sensors in parallel.
 
 ### Supported providers
 
@@ -61,10 +90,10 @@ provider while applying Stihia `SenseGuard` guardrails in parallel.
 ### Streaming vs non-streaming
 
 - **Streaming**: Uses `SenseGuard.shield()` to wrap the upstream SSE stream.
-  Input guardrails gate the first chunk; output guardrails run on stream completion.
-- **Non-streaming**: Input guard and LLM request run in parallel. If input
+  Input sensors gate the first chunk; output sensors run on stream completion.
+- **Non-streaming**: Input sensors and LLM request run in parallel. If input
   triggers, the LLM response is discarded and an error is returned. Output
-  guardrails run on the complete response before it is returned.
+  sensors run on the complete response before it is returned.
 
 ### Stihia key mapping
 
@@ -103,8 +132,6 @@ returned to the user. Errors are logged to stderr.
 | `LIBRECHAT_RAG_POSTGRES_PASSWORD` | — | Required strong Postgres password for the RAG API pgvector store |
 | `LIBRECHAT_RAG_POSTGRES_PORT` | `5432` | Optional internal Postgres port that the RAG API uses when dialing `vectordb` |
 
-The Compose stack now refuses to start if `LIBRECHAT_RAG_POSTGRES_DB`,
-`LIBRECHAT_RAG_POSTGRES_USER`, or `LIBRECHAT_RAG_POSTGRES_PASSWORD` are missing.
 Set unique production values through your deployment environment or a non-committed
 `.env` file.
 
@@ -115,7 +142,7 @@ The bundled pgvector database image is pinned to `pgvector/pgvector:0.8.2-pg15`
 to avoid drift from `latest` in production deployments while remaining compatible
 with existing PostgreSQL 15 data volumes.
 
-If you later upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuild
+If you upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuild
 the `vectordb_data` volume first. Reusing a PostgreSQL 15 data directory with PostgreSQL 16+
 or 17 will fail at container startup.
 
@@ -124,15 +151,33 @@ or 17 will fail at container startup.
 Run the proxy locally (without Docker):
 
 ```bash
-cd backend
-uv sync --all-packages --extra dev
-cd services/stihia-librechat
+# 1. Clone the repo
+git clone git@github.com:stihia-ai/stihia-librechat.git
+
+# 2. Install the `uv` package manager, if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Create and activate Python venv
+uv venv
+source .venv/bin/activate
+
+# 4. Install dependencies (including dev extras)
+uv sync --extra dev
+
+# 5. Start the dev server
 uvicorn stihia_librechat.main:app --reload --port 4005
 ```
 
 Run tests:
 
 ```bash
-cd backend
-uv run pytest services/stihia-librechat/tests -v
+uv run pytest tests -v
+```
+
+Run linting and type checks:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
 ```

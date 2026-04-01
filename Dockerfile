@@ -9,14 +9,12 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy workspace files
-COPY backend/pyproject.toml backend/uv.lock ./backend/
-COPY backend/libs ./backend/libs
-COPY backend/services/stihia-librechat ./backend/services/stihia-librechat
+# Copy project files
+COPY pyproject.toml ./
+COPY uv.lock ./
+COPY src ./src
 
-WORKDIR /app/backend
-
-# Create venv and build workspace packages as wheels for proper installation
+# Create venv and install the package with all dependencies
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 RUN uv venv $UV_PROJECT_ENVIRONMENT && \
     uv sync --frozen --no-dev --no-editable --package stihia-librechat

@@ -1,6 +1,6 @@
 # LibreChat custom endpoint configuration
 #
-# Routes LLM requests through the Stihia guardrail proxy.
+# Routes LLM requests through the Stihia proxy.
 # The proxy forwards them to the real provider API while applying
 # Stihia threat-detection guardrails in parallel.
 #

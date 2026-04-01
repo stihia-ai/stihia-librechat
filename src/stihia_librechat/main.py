@@ -63,6 +63,13 @@ _DEFAULT_ALLOWED_HOSTS: frozenset[str] = frozenset(
 _allowed_hosts: frozenset[str] = _DEFAULT_ALLOWED_HOSTS
 
 
+def _get_http_client() -> httpx.AsyncClient:
+    """Return the shared HTTP client, raising if the app hasn't started."""
+    if _http_client is None:
+        raise RuntimeError("HTTP client not initialised (app not started)")
+    return _http_client
+
+
 def _get_settings() -> Settings:
     global _settings
     if _settings is None:
@@ -277,9 +284,11 @@ async def openai_proxy(request: Request) -> Response:
     )
     upstream_url = base.rstrip("/") + "/v1/chat/completions"
 
+    client = _get_http_client()
+
     if _is_streaming(body):
         status, headers, stream = await proxy_streaming(
-            client=_http_client,
+            client=client,
             stihia_client=_stihia_client,
             upstream_url=upstream_url,
             method="POST",
@@ -297,7 +306,7 @@ async def openai_proxy(request: Request) -> Response:
         )
 
     status, headers, content = await proxy_non_streaming(
-        client=_http_client,
+        client=client,
         stihia_client=_stihia_client,
         upstream_url=upstream_url,
         method="POST",
@@ -342,10 +351,11 @@ async def anthropic_proxy(request: Request) -> Response:
         messages=messages,
     )
     upstream_url = base.rstrip("/") + "/v1/messages"
+    client = _get_http_client()
 
     if _is_streaming(body):
         status, headers, stream = await proxy_streaming(
-            client=_http_client,
+            client=client,
             stihia_client=_stihia_client,
             upstream_url=upstream_url,
             method="POST",
@@ -363,7 +373,7 @@ async def anthropic_proxy(request: Request) -> Response:
         )
 
     status, headers, content = await proxy_non_streaming(
-        client=_http_client,
+        client=client,
         stihia_client=_stihia_client,
         upstream_url=upstream_url,
         method="POST",
@@ -407,7 +417,7 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
     upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:generateContent"
 
     status, headers, content = await proxy_non_streaming(
-        client=_http_client,
+        client=_get_http_client(),
         stihia_client=_stihia_client,
         upstream_url=upstream_url,
         method="POST",
@@ -448,7 +458,7 @@ async def gemini_stream(request: Request, model_id: str) -> Response:
     upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:streamGenerateContent"
 
     status, headers, stream = await proxy_streaming(
-        client=_http_client,
+        client=_get_http_client(),
         stihia_client=_stihia_client,
         upstream_url=upstream_url,
         method="POST",

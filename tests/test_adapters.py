@@ -379,6 +379,10 @@ class TestParseSSEData:
         data = _parse_sse_data(b'data:   {"ok": true}')
         assert data == {"ok": True}
 
+    def test_non_object_json_returns_none(self):
+        assert _parse_sse_data(b"data: [1, 2, 3]") is None
+        assert _parse_sse_data(b'data: "text"') is None
+
 
 class TestOpenAIChunkText:
     def test_content_delta(self):

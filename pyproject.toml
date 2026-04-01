@@ -2,7 +2,7 @@
 name = "stihia-librechat"
 dynamic = ["version"]
 requires-python = ">=3.12"
-description = "Stihia guardrail proxy for LibreChat — transparent HTTP proxy with real-time threat detection"
+description = "Stihia AI security proxy for LibreChat — transparent HTTP proxy with real-time threat detection"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",

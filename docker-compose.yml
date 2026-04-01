@@ -83,11 +83,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ---------- Stihia Guardrail Proxy ----------
+  # ---------- Stihia Proxy ----------
   stihia-proxy:
     build:
-      context: ../../../
-      dockerfile: backend/services/stihia-librechat/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "4005:4005"
     environment:

@@ -1,4 +1,4 @@
-"""Core proxy logic: streaming and non-streaming upstream forwarding with guardrails."""
+"""Core proxy logic: streaming and non-streaming upstream forwarding with sensors."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ _HOP_BY_HOP = frozenset(
 
 
 # ---------------------------------------------------------------------------
-# OpenAI-compatible guardrail block responses
+# OpenAI-compatible sensor block responses
 # ---------------------------------------------------------------------------
 
 _INPUT_BLOCK_MSG = "⚠️ This message was blocked by a safety guardrail."
@@ -135,7 +135,7 @@ def _build_upstream_url(base_url: str, path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Response text extractors (for output guardrails)
+# Response text extractors (for output sensors)
 # ---------------------------------------------------------------------------
 
 
@@ -145,7 +145,7 @@ def _extract_assistant_text(
     """Best-effort extraction of assistant text from provider JSON.
 
     Tries OpenAI, Anthropic, and Gemini response shapes in order.
-    Includes tool call content alongside text so the output guardrail
+    Includes tool call content alongside text so the output sensor
     can evaluate the full assistant turn.
     Falls back to the raw response text if parsing fails.
     """
@@ -235,7 +235,7 @@ async def _guarded_stream(
     """Wrap an upstream SSE stream with SenseGuard.
 
     Yields raw bytes so FastAPI ``StreamingResponse`` can forward them
-    as-is.  When a guardrail triggers (input or output), emits an
+    as-is. When a sensor triggers (input or output), emits an
     OpenAI-compatible SSE error sequence instead of silently closing.
     Always closes the upstream ``httpx.Response`` when done.
     """
@@ -340,11 +340,11 @@ async def proxy_non_streaming(
     messages: list[dict[str, str]],
     sense_kwargs: dict[str, Any],
 ) -> tuple[int, dict[str, str], bytes]:
-    """Forward a non-streaming request with parallel guardrail checks.
+    """Forward a non-streaming request with parallel sensor checks.
 
-    1. Sends LLM request and input guardrail concurrently.
+    1. Sends LLM request and input sensor concurrently.
     2. If input triggers → discard LLM response, return error.
-    3. Runs output guardrail on LLM response body before returning.
+    3. Runs output sensor on LLM response body before returning.
     """
     if stihia_client is None or not messages:
         resp = await client.request(
@@ -410,6 +410,9 @@ async def proxy_non_streaming(
             input_triggered = False
         else:
             raise
+
+    if llm_response is None:
+        raise RuntimeError("LLM response unavailable after parallel execution")
 
     resp_headers = dict(llm_response.headers)
     for h in (
