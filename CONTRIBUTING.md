@@ -14,7 +14,7 @@ Docker Compose deployment stack. Contributions that fit this scope are welcome:
 - CI/CD and developer tooling enhancements.
 - Docker and deployment configuration.
 
-The Stihia guardrail engine itself (the Stihia API and the `stihia` Python SDK package) and
+The Stihia guardrail engine itself (the Stihia API and the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package) and
 LibreChat core are maintained separately. For issues with those projects,
 please file upstream.
 

@@ -21,7 +21,7 @@ safety guardrails powered by Stihia.
 
 **Out of scope:**
 
-- The Stihia guardrail engine itself (provided by the Stihia API and wrapped by the `stihia` Python SDK package).
+- The Stihia guardrail engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
 - LibreChat core development — this repo uses official LibreChat Docker images.
 - Hosting or managed service offerings.
 
