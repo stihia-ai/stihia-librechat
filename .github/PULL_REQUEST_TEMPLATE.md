@@ -15,8 +15,8 @@
 ## Checklist
 
 - [ ] I have read the [Contributing Guide](../CONTRIBUTING.md)
-- [ ] Tests pass locally (`pytest tests -v`)
-- [ ] Linting passes (`ruff check .`)
-- [ ] Type checking passes (`mypy src`)
+- [ ] Tests pass locally (`uv run pytest tests -v`)
+- [ ] Linting passes (`uv run ruff check .`)
+- [ ] Type checking passes (`uv run mypy src`)
 - [ ] I have added/updated tests for my changes (if applicable)
 - [ ] I have updated documentation (if applicable)
