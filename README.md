@@ -25,6 +25,88 @@ real-time threat detection powered by Stihia.
 - LibreChat core development — this repo uses official LibreChat Docker images.
 - Hosting or managed service offerings.
 
+## Getting Started
+
+This guide takes you from zero to a fully protected, self-hosted AI chat
+interface in under 10 minutes.
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| [Docker](https://docs.docker.com/get-docker/) & Docker Compose | v2+ recommended |
+| A **Stihia API key** | Free — see Step 1 below |
+| At least one **LLM provider key** | [OpenAI](https://platform.openai.com/api-keys), [Anthropic](https://console.anthropic.com/), or [Google Gemini](https://aistudio.google.com/apikey) |
+
+### Step 1 — Create your Stihia account and API key
+
+1. Sign up for a free account at **[app.stihia.ai](https://app.stihia.ai)**.
+2. Create a new **organization** — this is where your projects, team members,
+   and API keys live.
+3. *(Optional)* Go to **[Organization → Notification Settings](https://app.stihia.ai/organization)**
+   to receive email alerts when Stihia detects a threat.
+4. Navigate to **[Organization → API Keys](https://app.stihia.ai/organization)**
+   and click **Create API Key**. Copy the key (it starts with `sk_`).
+
+> **Keep your API key safe.** Treat it like a password — never commit it to
+> version control. You'll store it in a local `.env` file in the next step.
+
+### Step 2 — Clone and configure
+
+```bash
+git clone https://github.com/stihia-ai/stihia-librechat.git
+cd stihia-librechat
+cp .env.example .env
+```
+
+Open `.env` in your editor and fill in:
+
+| Variable | Where to get it |
+|---|---|
+| `STIHIA_API_KEY` | The `sk_…` key from Step 1 |
+| `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
+| `GOOGLE_GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+
+You only need **one** LLM provider key — add whichever providers you want to
+use. See [Environment variables](#environment-variables) for the full list of
+options, including required encryption keys (`CREDS_KEY`, `CREDS_IV`,
+`JWT_SECRET`, `JWT_REFRESH_SECRET`) and RAG Postgres credentials.
+
+### Step 3 — Launch
+
+```bash
+docker compose up
+```
+
+This starts the entire stack: LibreChat, MongoDB, Meilisearch, the RAG API
+with pgvector, and the Stihia security proxy.
+
+### Step 4 — Start chatting
+
+1. Open **[http://localhost:3080](http://localhost:3080)** and create your
+   local LibreChat account.
+2. Pick a model and send a message. Every request now flows through the Stihia
+   proxy, which runs real-time threat detection on both inputs and outputs
+   (see [Architecture](#architecture)).
+
+### Step 5 — View your threat detection traces
+
+Open the **[Stihia Console → Threads](https://app.stihia.ai/threads)** to see
+a live timeline of every detection, drill into individual traces, and review
+threat severity across your project.
+
+### Need custom sensors?
+
+The built-in sensors (`default-input-think`, `default-output`) cover general
+threats like common prompt injections, PII leakage, or destructive actions. If you need industry-specific
+compliance, custom threat categories, or tuned sensitivity, contact
+**[support@stihia.ai](mailto:support@stihia.ai)**.
+
+For the full API surface, see the
+**[Stihia API Reference](https://stihia.ai/api/reference/)** and the
+**[Stihia Python SDK](https://github.com/stihia-ai/stihia-sdk-python)**.
+
 ## Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
