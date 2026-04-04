@@ -321,9 +321,16 @@ async def openai_proxy(request: Request) -> Response:
         )
 
     messages = adapters.openai_messages(body)
+    process_key = body.get("model", "unknown")
+    _warn_if_skipping_guardrails(
+        provider="openai",
+        process_key=process_key,
+        body=body,
+        messages=messages,
+    )
     sense_kwargs = _extract_sense_kwargs(
         request,
-        process_key=body.get("model", "unknown"),
+        process_key=process_key,
         messages=messages,
     )
     upstream_url = base.rstrip("/") + "/v1/chat/completions"
@@ -485,7 +492,8 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
         messages=messages,
     )
     sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
-    upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:generateContent"
+    upstream_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
+    upstream_url = base.rstrip("/") + f"/{upstream_version}/models/{model_id}:generateContent"
 
     status, headers, content = await proxy_non_streaming(
         client=_get_http_client(),
@@ -542,7 +550,8 @@ async def gemini_stream(request: Request, model_id: str) -> Response:
         messages=messages,
     )
     sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
-    upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:streamGenerateContent"
+    route_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
+    upstream_url = base.rstrip("/") + f"/{route_version}/models/{model_id}:streamGenerateContent"
 
     status, headers, stream = await proxy_streaming(
         client=_get_http_client(),

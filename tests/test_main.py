@@ -669,7 +669,9 @@ class TestAnthropicAndGeminiTracking:
         assert mock_stihia.asense.await_count == 2
         mod._stihia_client = None
 
-    def test_anthropic_fallback_openai_shape_calls_stihia(self, client):
+    def test_anthropic_fallback_gemini_shape_calls_stihia(self, client):
+        """Payload uses Gemini ``contents`` shape — anthropic & openai parsers
+        return empty, so the gemini fallback must kick in."""
         import httpx
 
         import stihia_librechat.main as mod
@@ -692,7 +694,7 @@ class TestAnthropicAndGeminiTracking:
             "/v1/messages/",
             json={
                 "model": "claude-sonnet-4-6",
-                "messages": [{"role": "user", "content": "hi from openai shape"}],
+                "contents": [{"role": "user", "parts": [{"text": "hi via gemini shape"}]}],
             },
             headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
         )
