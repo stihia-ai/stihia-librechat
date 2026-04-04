@@ -30,6 +30,12 @@ real-time threat detection powered by Stihia.
 This guide takes you from zero to a fully protected, self-hosted AI chat
 interface in under 10 minutes.
 
+> [!CAUTION]
+> **The default configuration is for local development only and is not suitable for production.**
+> Auto-generated secrets, default database credentials, and exposed ports must be replaced
+> before deploying to any shared or public environment.
+> See [Environment variables](#environment-variables) for the full list of values to set.
+
 ### Prerequisites
 
 | Requirement | Notes |
