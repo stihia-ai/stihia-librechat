@@ -15,6 +15,8 @@ services:
   # ---------- LibreChat ----------
   librechat:
     image: librechat/librechat:v0.8.4
+    entrypoint: ["/bin/sh", "/opt/stihia/start-with-generated-secrets.sh"]
+    command: ["npm", "run", "backend"]
     ports:
       - "3080:3080"
     depends_on:
@@ -32,6 +34,7 @@ services:
       - .env
     volumes:
       - ./librechat.yaml:/app/librechat.yaml:ro
+      - ./docker/librechat/start-with-generated-secrets.sh:/opt/stihia/start-with-generated-secrets.sh:ro
       - librechat_images:/app/client/public/images
       - librechat_logs:/app/api/logs
     restart: unless-stopped
@@ -56,9 +59,9 @@ services:
   vectordb:
     image: pgvector/pgvector:0.8.2-pg15
     environment:
-      POSTGRES_DB: ${LIBRECHAT_RAG_POSTGRES_DB:?Set LIBRECHAT_RAG_POSTGRES_DB in .env or the deployment environment}
-      POSTGRES_USER: ${LIBRECHAT_RAG_POSTGRES_USER:?Set LIBRECHAT_RAG_POSTGRES_USER in .env or the deployment environment}
-      POSTGRES_PASSWORD: ${LIBRECHAT_RAG_POSTGRES_PASSWORD:?Set LIBRECHAT_RAG_POSTGRES_PASSWORD in .env or the deployment environment}
+      POSTGRES_DB: ${LIBRECHAT_RAG_POSTGRES_DB:-librechat_rag}
+      POSTGRES_USER: ${LIBRECHAT_RAG_POSTGRES_USER:-librechat}
+      POSTGRES_PASSWORD: ${LIBRECHAT_RAG_POSTGRES_PASSWORD:-librechat_dev_password_change_me}
     volumes:
       - vectordb_data:/var/lib/postgresql/data
     healthcheck:
@@ -74,9 +77,9 @@ services:
     environment:
       - DB_HOST=vectordb
       - DB_PORT=${LIBRECHAT_RAG_POSTGRES_PORT:-5432}
-      - POSTGRES_DB=${LIBRECHAT_RAG_POSTGRES_DB:?Set LIBRECHAT_RAG_POSTGRES_DB in .env or the deployment environment}
-      - POSTGRES_USER=${LIBRECHAT_RAG_POSTGRES_USER:?Set LIBRECHAT_RAG_POSTGRES_USER in .env or the deployment environment}
-      - POSTGRES_PASSWORD=${LIBRECHAT_RAG_POSTGRES_PASSWORD:?Set LIBRECHAT_RAG_POSTGRES_PASSWORD in .env or the deployment environment}
+      - POSTGRES_DB=${LIBRECHAT_RAG_POSTGRES_DB:-librechat_rag}
+      - POSTGRES_USER=${LIBRECHAT_RAG_POSTGRES_USER:-librechat}
+      - POSTGRES_PASSWORD=${LIBRECHAT_RAG_POSTGRES_PASSWORD:-librechat_dev_password_change_me}
       - RAG_PORT=8000
     depends_on:
       vectordb:

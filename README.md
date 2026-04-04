@@ -69,9 +69,14 @@ Open `.env` in your editor and fill in:
 | `GOOGLE_GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 
 You only need **one** LLM provider key — add whichever providers you want to
-use. See [Environment variables](#environment-variables) for the full list of
-options, including required encryption keys (`CREDS_KEY`, `CREDS_IV`,
-`JWT_SECRET`, `JWT_REFRESH_SECRET`) and RAG Postgres credentials.
+use.
+
+`CREDS_KEY`, `CREDS_IV`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` are
+auto-generated during `docker compose up` when left blank. RAG Postgres
+credentials also have local defaults when unset.
+
+For production or persistent local sessions, set these values explicitly in
+`.env`. See [Environment variables](#environment-variables) for details.
 
 ### Step 3 — Launch
 
@@ -138,7 +143,7 @@ deployment and does not include LibreChat source code.
 ```bash
 # 1. Configure your API keys
 cp .env.example .env
-# Edit .env — add your STIHIA_API_KEY, LLM provider keys, and RAG Postgres credentials
+# Edit .env — add your STIHIA_API_KEY and at least one LLM provider key
 
 # 2. Launch everything
 docker compose up
@@ -205,17 +210,19 @@ returned to the user. Errors are logged to stderr.
 | `OPENAI_API_KEY` | — | OpenAI API key (passed through to provider) |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key (passed through to provider) |
 | `GOOGLE_GEMINI_API_KEY` | — | Google Gemini API key (passed through to provider) |
-| `CREDS_KEY` | — | **Required** — 32-byte hex key (64 chars) for credential encryption |
-| `CREDS_IV` | — | **Required** — 16-byte hex IV (32 chars) for credential encryption |
-| `JWT_SECRET` | — | **Required** — 32-byte hex key (64 chars) for signing access tokens |
-| `JWT_REFRESH_SECRET` | — | **Required** — 32-byte hex key (64 chars) for signing refresh tokens |
-| `LIBRECHAT_RAG_POSTGRES_DB` | — | Required Postgres database name for the RAG API pgvector store |
-| `LIBRECHAT_RAG_POSTGRES_USER` | — | Required Postgres user for the RAG API pgvector store |
-| `LIBRECHAT_RAG_POSTGRES_PASSWORD` | — | Required strong Postgres password for the RAG API pgvector store |
+| `CREDS_KEY` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for credential encryption |
+| `CREDS_IV` | *(auto-generated if empty)* | 16-byte hex IV (32 chars) for credential encryption |
+| `JWT_SECRET` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for signing access tokens |
+| `JWT_REFRESH_SECRET` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for signing refresh tokens |
+| `LIBRECHAT_RAG_POSTGRES_DB` | `librechat_rag` | Postgres database name for the RAG API pgvector store |
+| `LIBRECHAT_RAG_POSTGRES_USER` | `librechat` | Postgres user for the RAG API pgvector store |
+| `LIBRECHAT_RAG_POSTGRES_PASSWORD` | `librechat_dev_password_change_me` | Postgres password for the RAG API pgvector store |
 | `LIBRECHAT_RAG_POSTGRES_PORT` | `5432` | Optional internal Postgres port that the RAG API uses when dialing `vectordb` |
 
-Set unique production values through your deployment environment or a non-committed
-`.env` file.
+For local onboarding, auto-generated/default values reduce setup friction.
+
+For production, set unique values for all auth and database secrets through your
+deployment environment or a non-committed `.env` file.
 
 When storing passwords in `.env`, escape each `$` as `$$`. Docker Compose
 interpolates `.env` values, so an unescaped `$` can silently corrupt a strong password.
