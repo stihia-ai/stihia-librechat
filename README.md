@@ -72,7 +72,7 @@ Open `.env` in your editor and fill in:
 | `STIHIA_API_KEY` | The `sk_…` key from Step 1 |
 | `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
-| `GOOGLE_GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GOOGLE_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 
 You only need **one** LLM provider key — add whichever providers you want to
 use.
@@ -215,7 +215,7 @@ returned to the user. Errors are logged to stderr.
 | `LOG_LEVEL` | `INFO` | Python logging level |
 | `OPENAI_API_KEY` | — | OpenAI API key (passed through to provider) |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key (passed through to provider) |
-| `GOOGLE_GEMINI_API_KEY` | — | Google Gemini API key (passed through to provider) |
+| `GOOGLE_KEY` | — | Google AI Studio API key (passed through to provider) |
 | `CREDS_KEY` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for credential encryption |
 | `CREDS_IV` | *(auto-generated if empty)* | 16-byte hex IV (32 chars) for credential encryption |
 | `JWT_SECRET` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for signing access tokens |

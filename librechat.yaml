@@ -54,7 +54,7 @@ endpoints:
 
     # ---- Google Gemini via Stihia Proxy ----
     - name: "Google"
-      apiKey: "${GOOGLE_GEMINI_API_KEY}"
+      apiKey: "${GOOGLE_KEY}"
       baseURL: "http://stihia-proxy:4005/v1beta"
       models:
         default: ["gemini-2.5-flash", "gemini-2.5-pro"]
