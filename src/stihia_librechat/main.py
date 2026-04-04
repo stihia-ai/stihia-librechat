@@ -15,8 +15,9 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import httpx
@@ -41,6 +42,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+ParserEntry = tuple[str, Callable[[dict[str, Any]], list[dict[str, str]]]]
 
 # ---------------------------------------------------------------------------
 # App
@@ -245,7 +247,7 @@ def _messages_with_fallback(
     body: dict,
 ) -> tuple[list[dict[str, str]], str]:
     """Parse provider messages, retrying with compatible adapter fallbacks."""
-    parser_map: dict[str, tuple] = {
+    parser_map: dict[str, tuple[ParserEntry, ...]] = {
         "openai": (("openai", adapters.openai_messages),),
         "anthropic": (
             ("anthropic", adapters.anthropic_messages),

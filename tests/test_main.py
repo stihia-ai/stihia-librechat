@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -757,7 +756,7 @@ class TestAnthropicAndGeminiTracking:
 
         class FakeStreamResponse:
             status_code = 200
-            headers: ClassVar[dict[str, str]] = {"content-type": "text/event-stream"}
+            headers = (("content-type", "text/event-stream"),)
 
             async def aiter_lines(self):
                 yield 'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}'
@@ -812,7 +811,7 @@ class TestAnthropicAndGeminiTracking:
 
         class FakeStreamResponse:
             status_code = 200
-            headers: ClassVar[dict[str, str]] = {"content-type": "text/event-stream"}
+            headers = (("content-type", "text/event-stream"),)
 
             async def aiter_lines(self):
                 yield 'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}'
