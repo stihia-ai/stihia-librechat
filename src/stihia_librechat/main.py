@@ -492,8 +492,8 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
         messages=messages,
     )
     sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
-    upstream_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
-    upstream_url = base.rstrip("/") + f"/{upstream_version}/models/{model_id}:generateContent"
+    route_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
+    upstream_url = base.rstrip("/") + f"/{route_version}/models/{model_id}:generateContent"
 
     status, headers, content = await proxy_non_streaming(
         client=_get_http_client(),
