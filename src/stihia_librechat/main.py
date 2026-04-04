@@ -239,6 +239,48 @@ def _parse_json(raw_body: bytes) -> tuple[dict | None, str | None]:
         return None, f"Invalid JSON body: {exc}"
 
 
+def _messages_with_fallback(
+    *,
+    provider: str,
+    body: dict,
+) -> tuple[list[dict[str, str]], str]:
+    """Parse provider messages, retrying with compatible adapter fallbacks."""
+    parser_map: dict[str, tuple] = {
+        "openai": (("openai", adapters.openai_messages),),
+        "anthropic": (
+            ("anthropic", adapters.anthropic_messages),
+            ("openai", adapters.openai_messages),
+            ("gemini", adapters.gemini_messages),
+        ),
+        "gemini": (
+            ("gemini", adapters.gemini_messages),
+            ("openai", adapters.openai_messages),
+            ("anthropic", adapters.anthropic_messages),
+        ),
+    }
+    for source, parser in parser_map.get(provider, ()):
+        messages = parser(body)
+        if messages:
+            return messages, source
+    return [], "none"
+
+
+def _warn_if_skipping_guardrails(
+    *,
+    provider: str,
+    process_key: str,
+    body: dict,
+    messages: list[dict[str, str]],
+) -> None:
+    if _stihia_client is not None and not messages:
+        logger.warning(
+            "Skipping Stihia guardrails due to empty parsed messages (provider=%s, model=%s, body_keys=%s)",
+            provider,
+            process_key,
+            sorted(body.keys()),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -324,6 +366,7 @@ async def openai_proxy(request: Request) -> Response:
 
 
 @app.api_route("/v1/messages", methods=["POST"])
+@app.api_route("/v1/messages/", methods=["POST"])
 async def anthropic_proxy(request: Request) -> Response:
     """Proxy Anthropic messages requests."""
     base = _upstream_base(request)
@@ -344,10 +387,23 @@ async def anthropic_proxy(request: Request) -> Response:
             status_code=400,
         )
 
-    messages = adapters.anthropic_messages(body)
+    process_key = body.get("model", "unknown")
+    messages, parser_source = _messages_with_fallback(provider="anthropic", body=body)
+    if parser_source != "anthropic" and parser_source != "none":
+        logger.info(
+            "Anthropic payload parsed via fallback adapter '%s' (model=%s)",
+            parser_source,
+            process_key,
+        )
+    _warn_if_skipping_guardrails(
+        provider="anthropic",
+        process_key=process_key,
+        body=body,
+        messages=messages,
+    )
     sense_kwargs = _extract_sense_kwargs(
         request,
-        process_key=body.get("model", "unknown"),
+        process_key=process_key,
         messages=messages,
     )
     upstream_url = base.rstrip("/") + "/v1/messages"
@@ -392,6 +448,7 @@ async def anthropic_proxy(request: Request) -> Response:
 
 
 @app.api_route("/v1beta/models/{model_id}:generateContent", methods=["POST"])
+@app.api_route("/v1/models/{model_id}:generateContent", methods=["POST"])
 async def gemini_generate(request: Request, model_id: str) -> Response:
     """Proxy non-streaming Gemini generateContent."""
     base = _upstream_base(request)
@@ -412,7 +469,19 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
             status_code=400,
         )
 
-    messages = adapters.gemini_messages(body)
+    messages, parser_source = _messages_with_fallback(provider="gemini", body=body)
+    if parser_source != "gemini" and parser_source != "none":
+        logger.info(
+            "Gemini payload parsed via fallback adapter '%s' (model=%s)",
+            parser_source,
+            model_id,
+        )
+    _warn_if_skipping_guardrails(
+        provider="gemini",
+        process_key=model_id,
+        body=body,
+        messages=messages,
+    )
     sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
     upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:generateContent"
 
@@ -431,6 +500,10 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
 
 @app.api_route(
     "/v1beta/models/{model_id}:streamGenerateContent",
+    methods=["POST"],
+)
+@app.api_route(
+    "/v1/models/{model_id}:streamGenerateContent",
     methods=["POST"],
 )
 async def gemini_stream(request: Request, model_id: str) -> Response:
@@ -453,7 +526,19 @@ async def gemini_stream(request: Request, model_id: str) -> Response:
             status_code=400,
         )
 
-    messages = adapters.gemini_messages(body)
+    messages, parser_source = _messages_with_fallback(provider="gemini", body=body)
+    if parser_source != "gemini" and parser_source != "none":
+        logger.info(
+            "Gemini payload parsed via fallback adapter '%s' (model=%s)",
+            parser_source,
+            model_id,
+        )
+    _warn_if_skipping_guardrails(
+        provider="gemini",
+        process_key=model_id,
+        body=body,
+        messages=messages,
+    )
     sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
     upstream_url = base.rstrip("/") + f"/v1beta/models/{model_id}:streamGenerateContent"
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -604,3 +605,269 @@ class TestThreadKeySegregation:
         req = FakeRequest({"x-conversation-id": "conv-42"})
         kwargs = _extract_sense_kwargs(req, process_key="gpt-4o")
         assert kwargs["thread_key"] == "conv-42"
+
+
+class TestAnthropicAndGeminiTracking:
+    def test_anthropic_non_streaming_calls_stihia_asense(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[_make_sense_operation("low"), _make_sense_operation("low")])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "ok"}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/messages",
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count == 2
+        mod._stihia_client = None
+
+    def test_gemini_non_streaming_calls_stihia_asense(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[_make_sense_operation("low"), _make_sense_operation("low")])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1beta/models/gemini-2.5-flash:generateContent",
+            json={
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+            },
+            headers={"X-Upstream-Base-URL": "https://generativelanguage.googleapis.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count == 2
+        mod._stihia_client = None
+
+    def test_anthropic_fallback_openai_shape_calls_stihia(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[_make_sense_operation("low"), _make_sense_operation("low")])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "ok"}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/messages/",
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "hi from openai shape"}],
+            },
+            headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count == 2
+        mod._stihia_client = None
+
+    def test_gemini_fallback_openai_shape_calls_stihia(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[_make_sense_operation("low"), _make_sense_operation("low")])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/models/gemini-2.5-flash:generateContent",
+            json={
+                "messages": [{"role": "user", "content": "hi from openai shape"}],
+            },
+            headers={"X-Upstream-Base-URL": "https://generativelanguage.googleapis.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count == 2
+        mod._stihia_client = None
+
+    def test_anthropic_streaming_calls_stihia_asense(self, client, monkeypatch):
+        import stihia_librechat.main as mod
+        import stihia_librechat.proxy as proxy_mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("low"))
+        mod._stihia_client = mock_stihia
+
+        class FakeSenseGuard:
+            def __init__(self, stihia_client, **kwargs):
+                self.stihia_client = stihia_client
+                self.input_triggered = False
+                self.output_triggered = False
+
+            async def shield(self, stream):
+                await self.stihia_client.asense(
+                    messages=[{"role": "user", "content": "x"}],
+                    sensor="default-input-think",
+                )
+                async for chunk in stream:
+                    yield chunk
+
+        monkeypatch.setattr(proxy_mod, "SenseGuard", FakeSenseGuard)
+
+        class FakeStreamResponse:
+            status_code = 200
+            headers: ClassVar[dict[str, str]] = {"content-type": "text/event-stream"}
+
+            async def aiter_lines(self):
+                yield 'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}'
+
+            async def aiter_bytes(self):
+                yield b"data: [DONE]\n\n"
+
+            async def aclose(self):
+                pass
+
+        async def mock_send(*a, **kw):
+            return FakeStreamResponse()
+
+        mod._http_client.send = mock_send  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/messages",
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": True,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count >= 1
+        mod._stihia_client = None
+
+    def test_gemini_streaming_calls_stihia_asense(self, client, monkeypatch):
+        import stihia_librechat.main as mod
+        import stihia_librechat.proxy as proxy_mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("low"))
+        mod._stihia_client = mock_stihia
+
+        class FakeSenseGuard:
+            def __init__(self, stihia_client, **kwargs):
+                self.stihia_client = stihia_client
+                self.input_triggered = False
+                self.output_triggered = False
+
+            async def shield(self, stream):
+                await self.stihia_client.asense(
+                    messages=[{"role": "user", "content": "x"}],
+                    sensor="default-input-think",
+                )
+                async for chunk in stream:
+                    yield chunk
+
+        monkeypatch.setattr(proxy_mod, "SenseGuard", FakeSenseGuard)
+
+        class FakeStreamResponse:
+            status_code = 200
+            headers: ClassVar[dict[str, str]] = {"content-type": "text/event-stream"}
+
+            async def aiter_lines(self):
+                yield 'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}'
+
+            async def aiter_bytes(self):
+                yield b"data: [DONE]\n\n"
+
+            async def aclose(self):
+                pass
+
+        async def mock_send(*a, **kw):
+            return FakeStreamResponse()
+
+        mod._http_client.send = mock_send  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/models/gemini-2.5-flash:streamGenerateContent",
+            json={
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "stream": True,
+            },
+            headers={"X-Upstream-Base-URL": "https://generativelanguage.googleapis.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count >= 1
+        mod._stihia_client = None
+
+    def test_logs_warning_when_messages_empty_and_guardrails_skip(self, client, caplog):
+        import logging
+
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock()
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(200, json={"content": [{"type": "text", "text": "ok"}]})
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        with caplog.at_level(logging.WARNING):
+            resp = client.post(
+                "/v1/messages",
+                json={"model": "claude-sonnet-4-6", "foo": "bar"},
+                headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+            )
+
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_count == 0
+        assert "Skipping Stihia guardrails due to empty parsed messages" in caplog.text
+        assert "provider=anthropic" in caplog.text
+        assert "claude-sonnet-4-6" in caplog.text
+        mod._stihia_client = None
