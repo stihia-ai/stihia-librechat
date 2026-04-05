@@ -36,34 +36,3 @@ endpoints:
         X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
         X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"
 
-    # ---- Anthropic via Stihia Proxy ----
-    - name: "Anthropic"
-      apiKey: "${ANTHROPIC_API_KEY}"
-      baseURL: "http://stihia-proxy:4005/v1"
-      models:
-        default: ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]
-        fetch: false
-      titleConvo: true
-      titleModel: "claude-sonnet-4-6"
-      modelDisplayLabel: "Anthropic"
-      headers:
-        X-Upstream-Base-URL: "https://api.anthropic.com"
-        X-User-ID: "{{LIBRECHAT_USER_ID}}"
-        X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
-        X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"
-
-    # ---- Google Gemini via Stihia Proxy ----
-    - name: "Google"
-      apiKey: "${GOOGLE_KEY}"
-      baseURL: "http://stihia-proxy:4005/v1beta"
-      models:
-        default: ["gemini-2.5-flash", "gemini-2.5-pro"]
-        fetch: false
-      titleConvo: true
-      titleModel: "gemini-2.5-flash"
-      modelDisplayLabel: "Google"
-      headers:
-        X-Upstream-Base-URL: "https://generativelanguage.googleapis.com"
-        X-User-ID: "{{LIBRECHAT_USER_ID}}"
-        X-Conversation-ID: "{{LIBRECHAT_BODY_CONVERSATIONID}}"
-        X-Message-ID: "{{LIBRECHAT_BODY_MESSAGEID}}"

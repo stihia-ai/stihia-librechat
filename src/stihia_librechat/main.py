@@ -1,8 +1,8 @@
 """Stihia LibreChat proxy — FastAPI application.
 
-A lightweight reverse proxy that sits between LibreChat and third-party LLM
-providers (OpenAI, Anthropic, Google Gemini). It transparently forwards
-requests while applying Stihia guardrails in parallel.
+A lightweight reverse proxy that sits between LibreChat and OpenAI.
+It transparently forwards requests while applying Stihia guardrails
+in parallel.
 
 Meta-request detection: LibreChat custom endpoints send title generation
 as regular chat completions. The proxy detects these via literal substring
@@ -15,9 +15,8 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import httpx
@@ -27,10 +26,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from stihia import StihiaClient
 from stihia_librechat import adapters
 from stihia_librechat.proxy import (
-    _anthropic_block_response,
-    _anthropic_block_sse,
-    _gemini_block_response,
-    _gemini_block_sse,
     proxy_non_streaming,
     proxy_streaming,
 )
@@ -49,7 +44,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
-ParserEntry = tuple[str, Callable[[dict[str, Any]], list[dict[str, str]]]]
+
 
 # ---------------------------------------------------------------------------
 # App
@@ -64,8 +59,6 @@ _stihia_client: StihiaClient | None = None
 _DEFAULT_ALLOWED_HOSTS: frozenset[str] = frozenset(
     {
         "api.openai.com",
-        "api.anthropic.com",
-        "generativelanguage.googleapis.com",
     }
 )
 
@@ -248,32 +241,6 @@ def _parse_json(raw_body: bytes) -> tuple[dict | None, str | None]:
         return None, f"Invalid JSON body: {exc}"
 
 
-def _messages_with_fallback(
-    *,
-    provider: str,
-    body: dict,
-) -> tuple[list[dict[str, str]], str]:
-    """Parse provider messages, retrying with compatible adapter fallbacks."""
-    parser_map: dict[str, tuple[ParserEntry, ...]] = {
-        "openai": (("openai", adapters.openai_messages),),
-        "anthropic": (
-            ("anthropic", adapters.anthropic_messages),
-            ("openai", adapters.openai_messages),
-            ("gemini", adapters.gemini_messages),
-        ),
-        "gemini": (
-            ("gemini", adapters.gemini_messages),
-            ("openai", adapters.openai_messages),
-            ("anthropic", adapters.anthropic_messages),
-        ),
-    }
-    for source, parser in parser_map.get(provider, ()):
-        messages = parser(body)
-        if messages:
-            return messages, source
-    return [], "none"
-
-
 def _warn_if_skipping_guardrails(
     *,
     provider: str,
@@ -374,210 +341,3 @@ async def openai_proxy(request: Request) -> Response:
         sense_kwargs=sense_kwargs,
     )
     return Response(content=content, status_code=status, headers=headers)
-
-
-# ---------------------------------------------------------------------------
-# Anthropic  /v1/messages
-# ---------------------------------------------------------------------------
-
-
-@app.api_route("/v1/messages", methods=["POST"])
-@app.api_route("/v1/messages/", methods=["POST"])
-async def anthropic_proxy(request: Request) -> Response:
-    """Proxy Anthropic messages requests."""
-    base = _upstream_base(request)
-    if not base:
-        return JSONResponse(
-            {"error": {"message": "Missing X-Upstream-Base-URL header"}},
-            status_code=400,
-        )
-    err = _validate_upstream(base)
-    if err:
-        return JSONResponse({"error": {"message": err}}, status_code=403)
-
-    raw_body = await request.body()
-    body, parse_err = _parse_json(raw_body)
-    if body is None:
-        return JSONResponse(
-            {"error": {"message": parse_err}},
-            status_code=400,
-        )
-
-    process_key = body.get("model", "unknown")
-    messages, parser_source = _messages_with_fallback(provider="anthropic", body=body)
-    if parser_source != "anthropic" and parser_source != "none":
-        logger.info(
-            "Anthropic payload parsed via fallback adapter '%s' (model=%s)",
-            parser_source,
-            process_key,
-        )
-    _warn_if_skipping_guardrails(
-        provider="anthropic",
-        process_key=process_key,
-        body=body,
-        messages=messages,
-    )
-    sense_kwargs = _extract_sense_kwargs(
-        request,
-        process_key=process_key,
-        messages=messages,
-    )
-    upstream_url = base.rstrip("/") + "/v1/messages"
-    client = _get_http_client()
-
-    if _is_streaming(body):
-        status, headers, stream = await proxy_streaming(
-            client=client,
-            stihia_client=_stihia_client,
-            upstream_url=upstream_url,
-            method="POST",
-            headers=_raw_headers(request),
-            body=raw_body,
-            messages=messages,
-            sense_kwargs=sense_kwargs,
-            chunk_to_text=adapters.anthropic_chunk_text,
-            block_sse_events=_anthropic_block_sse,
-        )
-        return StreamingResponse(
-            stream,
-            status_code=status,
-            headers=headers,
-            media_type="text/event-stream",
-        )
-
-    status, headers, content = await proxy_non_streaming(
-        client=client,
-        stihia_client=_stihia_client,
-        upstream_url=upstream_url,
-        method="POST",
-        headers=_raw_headers(request),
-        body=raw_body,
-        messages=messages,
-        sense_kwargs=sense_kwargs,
-        block_response=_anthropic_block_response,
-    )
-    return Response(content=content, status_code=status, headers=headers)
-
-
-# ---------------------------------------------------------------------------
-# Google Gemini  /v1beta/models/{model}:generateContent
-#                /v1beta/models/{model}:streamGenerateContent
-# ---------------------------------------------------------------------------
-
-
-@app.api_route("/v1beta/models/{model_id}:generateContent", methods=["POST"])
-@app.api_route("/v1/models/{model_id}:generateContent", methods=["POST"])
-async def gemini_generate(request: Request, model_id: str) -> Response:
-    """Proxy non-streaming Gemini generateContent."""
-    base = _upstream_base(request)
-    if not base:
-        return JSONResponse(
-            {"error": {"message": "Missing X-Upstream-Base-URL header"}},
-            status_code=400,
-        )
-    err = _validate_upstream(base)
-    if err:
-        return JSONResponse({"error": {"message": err}}, status_code=403)
-
-    raw_body = await request.body()
-    body, parse_err = _parse_json(raw_body)
-    if body is None:
-        return JSONResponse(
-            {"error": {"message": parse_err}},
-            status_code=400,
-        )
-
-    messages, parser_source = _messages_with_fallback(provider="gemini", body=body)
-    if parser_source != "gemini" and parser_source != "none":
-        logger.info(
-            "Gemini payload parsed via fallback adapter '%s' (model=%s)",
-            parser_source,
-            model_id,
-        )
-    _warn_if_skipping_guardrails(
-        provider="gemini",
-        process_key=model_id,
-        body=body,
-        messages=messages,
-    )
-    sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
-    route_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
-    upstream_url = base.rstrip("/") + f"/{route_version}/models/{model_id}:generateContent"
-
-    status, headers, content = await proxy_non_streaming(
-        client=_get_http_client(),
-        stihia_client=_stihia_client,
-        upstream_url=upstream_url,
-        method="POST",
-        headers=_raw_headers(request),
-        body=raw_body,
-        messages=messages,
-        sense_kwargs=sense_kwargs,
-        block_response=_gemini_block_response,
-    )
-    return Response(content=content, status_code=status, headers=headers)
-
-
-@app.api_route(
-    "/v1beta/models/{model_id}:streamGenerateContent",
-    methods=["POST"],
-)
-@app.api_route(
-    "/v1/models/{model_id}:streamGenerateContent",
-    methods=["POST"],
-)
-async def gemini_stream(request: Request, model_id: str) -> Response:
-    """Proxy streaming Gemini streamGenerateContent."""
-    base = _upstream_base(request)
-    if not base:
-        return JSONResponse(
-            {"error": {"message": "Missing X-Upstream-Base-URL header"}},
-            status_code=400,
-        )
-    err = _validate_upstream(base)
-    if err:
-        return JSONResponse({"error": {"message": err}}, status_code=403)
-
-    raw_body = await request.body()
-    body, parse_err = _parse_json(raw_body)
-    if body is None:
-        return JSONResponse(
-            {"error": {"message": parse_err}},
-            status_code=400,
-        )
-
-    messages, parser_source = _messages_with_fallback(provider="gemini", body=body)
-    if parser_source != "gemini" and parser_source != "none":
-        logger.info(
-            "Gemini payload parsed via fallback adapter '%s' (model=%s)",
-            parser_source,
-            model_id,
-        )
-    _warn_if_skipping_guardrails(
-        provider="gemini",
-        process_key=model_id,
-        body=body,
-        messages=messages,
-    )
-    sense_kwargs = _extract_sense_kwargs(request, process_key=model_id, messages=messages)
-    route_version = "v1" if request.url.path.startswith("/v1/") else "v1beta"
-    upstream_url = base.rstrip("/") + f"/{route_version}/models/{model_id}:streamGenerateContent"
-
-    status, headers, stream = await proxy_streaming(
-        client=_get_http_client(),
-        stihia_client=_stihia_client,
-        upstream_url=upstream_url,
-        method="POST",
-        headers=_raw_headers(request),
-        body=raw_body,
-        messages=messages,
-        sense_kwargs=sense_kwargs,
-        chunk_to_text=adapters.gemini_chunk_text,
-        block_sse_events=_gemini_block_sse,
-    )
-    return StreamingResponse(
-        stream,
-        status_code=status,
-        headers=headers,
-        media_type="text/event-stream",
-    )

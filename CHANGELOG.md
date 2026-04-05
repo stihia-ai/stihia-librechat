@@ -8,8 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Transparent HTTP proxy with Stihia realtime threat detection for OpenAI,
-  Anthropic, and Google Gemini providers.
+- Transparent HTTP proxy with Stihia realtime threat detection for OpenAI
+  providers.
 - Streaming and non-streaming support with input/output guardrails.
 - Docker Compose stack bundling LibreChat, MongoDB, Meilisearch, RAG API
   (pgvector), and the Stihia AI security proxy.

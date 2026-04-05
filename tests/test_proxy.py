@@ -7,13 +7,9 @@ import pytest
 from stihia_librechat.proxy import (
     _INPUT_BLOCK_MSG,
     _OUTPUT_BLOCK_MSG,
-    _anthropic_block_response,
-    _anthropic_block_sse,
     _build_upstream_url,
     _extract_assistant_text,
     _forward_headers,
-    _gemini_block_response,
-    _gemini_block_sse,
     _guarded_stream,
     _openai_block_response,
     _openai_block_sse,
@@ -93,21 +89,6 @@ class TestExtractAssistantText:
         body = json.dumps({"choices": [{"message": {"content": "Hello there!"}}]}).encode()
         assert _extract_assistant_text(body) == "Hello there!"
 
-    def test_anthropic_response(self):
-        body = json.dumps(
-            {
-                "content": [
-                    {"type": "text", "text": "Part A"},
-                    {"type": "text", "text": "Part B"},
-                ]
-            }
-        ).encode()
-        assert _extract_assistant_text(body) == "Part A\nPart B"
-
-    def test_gemini_response(self):
-        body = json.dumps({"candidates": [{"content": {"parts": [{"text": "Gemini says hi"}]}}]}).encode()
-        assert _extract_assistant_text(body) == "Gemini says hi"
-
     def test_invalid_json_returns_raw(self):
         assert _extract_assistant_text(b"not json") == "not json"
 
@@ -164,48 +145,6 @@ class TestExtractAssistantText:
         ).encode()
         result = _extract_assistant_text(body)
         assert "[tool_call: get_time({})]" in result
-
-    def test_anthropic_with_tool_use(self):
-        body = json.dumps(
-            {
-                "content": [
-                    {"type": "text", "text": "Searching..."},
-                    {
-                        "type": "tool_use",
-                        "id": "tu_1",
-                        "name": "web_search",
-                        "input": {"query": "weather"},
-                    },
-                ]
-            }
-        ).encode()
-        result = _extract_assistant_text(body)
-        assert "Searching..." in result
-        assert "[tool_use: web_search(" in result
-
-    def test_gemini_with_function_call(self):
-        body = json.dumps(
-            {
-                "candidates": [
-                    {
-                        "content": {
-                            "parts": [
-                                {"text": "Checking"},
-                                {
-                                    "functionCall": {
-                                        "name": "get_info",
-                                        "args": {"id": 1},
-                                    }
-                                },
-                            ]
-                        }
-                    }
-                ]
-            }
-        ).encode()
-        result = _extract_assistant_text(body)
-        assert "Checking" in result
-        assert "[function_call: get_info(" in result
 
 
 class TestOpenaiBlockResponse:
@@ -319,131 +258,3 @@ class TestGuardedStreamBlocked:
             chunks.append(chunk)
 
         assert chunks == [b"data: chunk1\n\n", b"data: chunk2\n\n"]
-
-
-class TestAnthropicBlockResponse:
-    def test_has_message_type_and_content(self):
-        body = _anthropic_block_response("blocked")
-        data = json.loads(body)
-        assert data["type"] == "message"
-        assert data["role"] == "assistant"
-        assert data["content"][0]["type"] == "text"
-        assert data["content"][0]["text"] == "blocked"
-        assert data["stop_reason"] == "end_turn"
-
-    def test_input_block_message(self):
-        body = _anthropic_block_response(_INPUT_BLOCK_MSG)
-        data = json.loads(body)
-        assert _INPUT_BLOCK_MSG in data["content"][0]["text"]
-
-    def test_output_block_message(self):
-        body = _anthropic_block_response(_OUTPUT_BLOCK_MSG)
-        data = json.loads(body)
-        assert _OUTPUT_BLOCK_MSG in data["content"][0]["text"]
-
-
-class TestAnthropicBlockSse:
-    def test_produces_six_events(self):
-        events = _anthropic_block_sse("blocked")
-        assert len(events) == 6
-
-    def test_message_start_event(self):
-        events = _anthropic_block_sse("blocked")
-        raw = events[0].decode()
-        assert raw.startswith("event: message_start\n")
-        data = json.loads(raw.split("data: ", 1)[1].strip())
-        assert data["type"] == "message_start"
-        assert data["message"]["role"] == "assistant"
-
-    def test_content_block_delta_has_message(self):
-        events = _anthropic_block_sse("test msg")
-        raw = events[2].decode()
-        assert "event: content_block_delta" in raw
-        data = json.loads(raw.split("data: ", 1)[1].strip())
-        assert data["delta"]["text"] == "test msg"
-
-    def test_message_stop_event(self):
-        events = _anthropic_block_sse("blocked")
-        raw = events[5].decode()
-        assert "event: message_stop" in raw
-
-
-class TestGeminiBlockResponse:
-    def test_has_candidates_with_text(self):
-        body = _gemini_block_response("blocked")
-        data = json.loads(body)
-        candidate = data["candidates"][0]
-        assert candidate["content"]["parts"][0]["text"] == "blocked"
-        assert candidate["content"]["role"] == "model"
-        assert candidate["finishReason"] == "STOP"
-
-    def test_input_block_message(self):
-        body = _gemini_block_response(_INPUT_BLOCK_MSG)
-        data = json.loads(body)
-        assert _INPUT_BLOCK_MSG in data["candidates"][0]["content"]["parts"][0]["text"]
-
-
-class TestGeminiBlockSse:
-    def test_produces_one_event(self):
-        events = _gemini_block_sse("blocked")
-        assert len(events) == 1
-
-    def test_event_has_candidates(self):
-        events = _gemini_block_sse("test msg")
-        data = json.loads(events[0].decode().removeprefix("data: ").strip())
-        assert data["candidates"][0]["content"]["parts"][0]["text"] == "test msg"
-        assert data["candidates"][0]["finishReason"] == "STOP"
-
-
-class TestGuardedStreamCustomBlockSse:
-    @pytest.mark.asyncio
-    async def test_emits_anthropic_sse_on_input_trigger(self):
-        class FakeResponse:
-            async def aclose(self):
-                pass
-
-        class FakeGuard:
-            input_triggered = True
-            output_triggered = False
-
-            async def shield(self, stream):
-                return
-                yield
-
-        chunks = []
-        async for chunk in _guarded_stream(
-            FakeResponse(),
-            FakeGuard(),
-            block_sse_events=_anthropic_block_sse,
-        ):
-            chunks.append(chunk)
-
-        assert len(chunks) == 6
-        raw = chunks[0].decode()
-        assert "event: message_start" in raw
-
-    @pytest.mark.asyncio
-    async def test_emits_gemini_sse_on_input_trigger(self):
-        class FakeResponse:
-            async def aclose(self):
-                pass
-
-        class FakeGuard:
-            input_triggered = True
-            output_triggered = False
-
-            async def shield(self, stream):
-                return
-                yield
-
-        chunks = []
-        async for chunk in _guarded_stream(
-            FakeResponse(),
-            FakeGuard(),
-            block_sse_events=_gemini_block_sse,
-        ):
-            chunks.append(chunk)
-
-        assert len(chunks) == 1
-        data = json.loads(chunks[0].decode().removeprefix("data: ").strip())
-        assert "candidates" in data

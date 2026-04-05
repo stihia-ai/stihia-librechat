@@ -42,7 +42,7 @@ interface in under 10 minutes.
 |---|---|
 | [Docker](https://docs.docker.com/get-docker/) & Docker Compose | v2+ recommended |
 | A **Stihia API key** | Free — see Step 1 below |
-| At least one **LLM provider key** | [OpenAI](https://platform.openai.com/api-keys), [Anthropic](https://console.anthropic.com/), or [Google Gemini](https://aistudio.google.com/apikey) |
+| An **OpenAI API key** | [OpenAI](https://platform.openai.com/api-keys) |
 
 ### Step 1 — Create your Stihia account and API key
 
@@ -71,11 +71,7 @@ Open `.env` in your editor and fill in:
 |---|---|
 | `STIHIA_API_KEY` | The `sk_…` key from Step 1 |
 | `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
-| `GOOGLE_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 
-You only need **one** LLM provider key — add whichever providers you want to
-use.
 
 `CREDS_KEY`, `CREDS_IV`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` are
 auto-generated during `docker compose up` when left blank. RAG Postgres
@@ -149,7 +145,7 @@ deployment and does not include LibreChat source code.
 ```bash
 # 1. Configure your API keys
 cp .env.example .env
-# Edit .env — add your STIHIA_API_KEY and at least one LLM provider key
+# Edit .env — add your STIHIA_API_KEY and OPENAI_API_KEY
 
 # 2. Launch everything
 docker compose up
@@ -160,7 +156,7 @@ LibreChat is available at **http://localhost:3080**.
 ## Architecture
 
 ```
-LibreChat  ──▶  Stihia Proxy (:4005)  ──▶  LLM Provider (OpenAI / Anthropic / Gemini)
+LibreChat  ──▶  Stihia Proxy (:4005)  ──▶  LLM Provider (OpenAI)
                       │
                       ├─ Input sensor  (default-input-think)
                       └─ Output sensor (default-output)
@@ -177,8 +173,6 @@ provider while applying Stihia `SenseGuard` sensors in parallel.
 | Provider | Endpoint(s) |
 |---|---|
 | OpenAI | `/v1/chat/completions` |
-| Anthropic | `/v1/messages` |
-| Google Gemini | `/v1beta/models/{model}:generateContent`, `/v1beta/models/{model}:streamGenerateContent` |
 
 ### Streaming vs non-streaming
 
@@ -214,8 +208,6 @@ returned to the user. Errors are logged to stderr.
 | `ALLOWED_UPSTREAM_HOSTS` | *(see below)* | Comma-separated allowlist of upstream hostnames |
 | `LOG_LEVEL` | `INFO` | Python logging level |
 | `OPENAI_API_KEY` | — | OpenAI API key (passed through to provider) |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key (passed through to provider) |
-| `GOOGLE_KEY` | — | Google AI Studio API key (passed through to provider) |
 | `CREDS_KEY` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for credential encryption |
 | `CREDS_IV` | *(auto-generated if empty)* | 16-byte hex IV (32 chars) for credential encryption |
 | `JWT_SECRET` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for signing access tokens |

@@ -125,119 +125,6 @@ def _openai_block_sse(message: str) -> list[bytes]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# Anthropic-compatible sensor block responses
-# ---------------------------------------------------------------------------
-
-
-def _anthropic_block_response(message: str) -> bytes:
-    """Build an Anthropic ``/v1/messages`` JSON response for a blocked request."""
-    return json.dumps(
-        {
-            "id": "guardrail-block",
-            "type": "message",
-            "role": "assistant",
-            "content": [{"type": "text", "text": message}],
-            "model": "guardrail",
-            "stop_reason": "end_turn",
-            "stop_sequence": None,
-            "usage": {"input_tokens": 0, "output_tokens": 0},
-        }
-    ).encode()
-
-
-def _anthropic_block_sse(message: str) -> list[bytes]:
-    """Build Anthropic-format SSE events for a blocked streaming request."""
-    msg_start = json.dumps(
-        {
-            "type": "message_start",
-            "message": {
-                "id": "guardrail-block",
-                "type": "message",
-                "role": "assistant",
-                "content": [],
-                "model": "guardrail",
-                "stop_reason": None,
-                "stop_sequence": None,
-                "usage": {"input_tokens": 0, "output_tokens": 0},
-            },
-        }
-    )
-    block_start = json.dumps(
-        {
-            "type": "content_block_start",
-            "index": 0,
-            "content_block": {"type": "text", "text": ""},
-        }
-    )
-    block_delta = json.dumps(
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "delta": {"type": "text_delta", "text": message},
-        }
-    )
-    block_stop = json.dumps({"type": "content_block_stop", "index": 0})
-    msg_delta = json.dumps(
-        {
-            "type": "message_delta",
-            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-            "usage": {"output_tokens": 0},
-        }
-    )
-    msg_stop = json.dumps({"type": "message_stop"})
-    return [
-        f"event: message_start\ndata: {msg_start}\n\n".encode(),
-        f"event: content_block_start\ndata: {block_start}\n\n".encode(),
-        f"event: content_block_delta\ndata: {block_delta}\n\n".encode(),
-        f"event: content_block_stop\ndata: {block_stop}\n\n".encode(),
-        f"event: message_delta\ndata: {msg_delta}\n\n".encode(),
-        f"event: message_stop\ndata: {msg_stop}\n\n".encode(),
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Gemini-compatible sensor block responses
-# ---------------------------------------------------------------------------
-
-
-def _gemini_block_response(message: str) -> bytes:
-    """Build a Gemini ``generateContent`` JSON response for a blocked request."""
-    return json.dumps(
-        {
-            "candidates": [
-                {
-                    "content": {
-                        "parts": [{"text": message}],
-                        "role": "model",
-                    },
-                    "finishReason": "STOP",
-                    "index": 0,
-                }
-            ],
-        }
-    ).encode()
-
-
-def _gemini_block_sse(message: str) -> list[bytes]:
-    """Build Gemini-format SSE events for a blocked streaming request."""
-    chunk = json.dumps(
-        {
-            "candidates": [
-                {
-                    "content": {
-                        "parts": [{"text": message}],
-                        "role": "model",
-                    },
-                    "finishReason": "STOP",
-                    "index": 0,
-                }
-            ],
-        }
-    )
-    return [f"data: {chunk}\n\n".encode()]
-
-
 def _forward_headers(raw_headers: dict[str, str]) -> dict[str, str]:
     """Strip hop-by-hop, proxy-specific, and metadata headers."""
     return {k: v for k, v in raw_headers.items() if k.lower() not in _HOP_BY_HOP}
@@ -257,7 +144,6 @@ def _extract_assistant_text(
 ) -> str:
     """Best-effort extraction of assistant text from provider JSON.
 
-    Tries OpenAI, Anthropic, and Gemini response shapes in order.
     Includes tool call content alongside text so the output sensor
     can evaluate the full assistant turn.
     Falls back to the raw response text if parsing fails.
@@ -284,41 +170,6 @@ def _extract_assistant_text(
                 parts.append(f"[tool_call: {name}({args})]")
         if parts:
             return "\n".join(parts)
-
-    # Anthropic: content[].text + tool_use blocks
-    blocks = data.get("content")
-    if isinstance(blocks, list):
-        parts = []
-        for b in blocks:
-            if not isinstance(b, dict):
-                continue
-            if b.get("type") == "text":
-                parts.append(b.get("text", ""))
-            elif b.get("type") == "tool_use":
-                name = b.get("name", "")
-                inp = b.get("input", {})
-                parts.append(f"[tool_use: {name}({json.dumps(inp)})]")
-        if parts:
-            return "\n".join(parts)
-
-    # Gemini: candidates[].content.parts[].text + functionCall
-    candidates = data.get("candidates")
-    if isinstance(candidates, list) and candidates:
-        c_parts = candidates[0].get("content", {}).get("parts", [])
-        texts: list[str] = []
-        for p in c_parts:
-            if not isinstance(p, dict):
-                continue
-            text = p.get("text")
-            if isinstance(text, str):
-                texts.append(text)
-            fc = p.get("functionCall")
-            if isinstance(fc, dict):
-                name = fc.get("name", "")
-                args = fc.get("args", {})
-                texts.append(f"[function_call: {name}({json.dumps(args)})]")
-        if texts:
-            return "\n".join(texts)
 
     return response_body.decode("utf-8", errors="replace")
 
