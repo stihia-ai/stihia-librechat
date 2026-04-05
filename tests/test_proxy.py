@@ -58,7 +58,7 @@ class TestForwardHeaders:
     def test_preserves_custom_headers(self):
         headers = {
             "x-api-key": "sk-ant-...",
-            "anthropic-version": "2024-01-01",
+            "provider-version": "2024-01-01",
         }
         result = _forward_headers(headers)
         assert result == headers
