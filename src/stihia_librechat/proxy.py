@@ -125,6 +125,119 @@ def _openai_block_sse(message: str) -> list[bytes]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Anthropic-compatible sensor block responses
+# ---------------------------------------------------------------------------
+
+
+def _anthropic_block_response(message: str) -> bytes:
+    """Build an Anthropic ``/v1/messages`` JSON response for a blocked request."""
+    return json.dumps(
+        {
+            "id": "guardrail-block",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": message}],
+            "model": "guardrail",
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+        }
+    ).encode()
+
+
+def _anthropic_block_sse(message: str) -> list[bytes]:
+    """Build Anthropic-format SSE events for a blocked streaming request."""
+    msg_start = json.dumps(
+        {
+            "type": "message_start",
+            "message": {
+                "id": "guardrail-block",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "guardrail",
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        }
+    )
+    block_start = json.dumps(
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        }
+    )
+    block_delta = json.dumps(
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": message},
+        }
+    )
+    block_stop = json.dumps({"type": "content_block_stop", "index": 0})
+    msg_delta = json.dumps(
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "usage": {"output_tokens": 0},
+        }
+    )
+    msg_stop = json.dumps({"type": "message_stop"})
+    return [
+        f"event: message_start\ndata: {msg_start}\n\n".encode(),
+        f"event: content_block_start\ndata: {block_start}\n\n".encode(),
+        f"event: content_block_delta\ndata: {block_delta}\n\n".encode(),
+        f"event: content_block_stop\ndata: {block_stop}\n\n".encode(),
+        f"event: message_delta\ndata: {msg_delta}\n\n".encode(),
+        f"event: message_stop\ndata: {msg_stop}\n\n".encode(),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Gemini-compatible sensor block responses
+# ---------------------------------------------------------------------------
+
+
+def _gemini_block_response(message: str) -> bytes:
+    """Build a Gemini ``generateContent`` JSON response for a blocked request."""
+    return json.dumps(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [{"text": message}],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ],
+        }
+    ).encode()
+
+
+def _gemini_block_sse(message: str) -> list[bytes]:
+    """Build Gemini-format SSE events for a blocked streaming request."""
+    chunk = json.dumps(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [{"text": message}],
+                        "role": "model",
+                    },
+                    "finishReason": "STOP",
+                    "index": 0,
+                }
+            ],
+        }
+    )
+    return [f"data: {chunk}\n\n".encode()]
+
+
 def _forward_headers(raw_headers: dict[str, str]) -> dict[str, str]:
     """Strip hop-by-hop, proxy-specific, and metadata headers."""
     return {k: v for k, v in raw_headers.items() if k.lower() not in _HOP_BY_HOP}
@@ -231,12 +344,14 @@ async def _byte_chunks_to_lines(
 async def _guarded_stream(
     response: httpx.Response,
     guard: SenseGuard,
+    *,
+    block_sse_events: Callable[[str], list[bytes]] = _openai_block_sse,
 ) -> AsyncIterator[bytes]:
     """Wrap an upstream SSE stream with SenseGuard.
 
     Yields raw bytes so FastAPI ``StreamingResponse`` can forward them
-    as-is. When a sensor triggers (input or output), emits an
-    OpenAI-compatible SSE error sequence instead of silently closing.
+    as-is. When a sensor triggers (input or output), emits a
+    provider-appropriate SSE error sequence instead of silently closing.
     Always closes the upstream ``httpx.Response`` when done.
     """
     try:
@@ -246,10 +361,10 @@ async def _guarded_stream(
             yield chunk
 
         if not yielded_any and guard.input_triggered:
-            for event in _openai_block_sse(_INPUT_BLOCK_MSG):
+            for event in block_sse_events(_INPUT_BLOCK_MSG):
                 yield event
         elif not yielded_any and guard.output_triggered:
-            for event in _openai_block_sse(_OUTPUT_BLOCK_MSG):
+            for event in block_sse_events(_OUTPUT_BLOCK_MSG):
                 yield event
     finally:
         await response.aclose()
@@ -277,6 +392,7 @@ async def proxy_streaming(
     messages: list[dict[str, str]],
     sense_kwargs: dict[str, Any],
     chunk_to_text: Callable[[bytes], str] | None = None,
+    block_sse_events: Callable[[str], list[bytes]] = _openai_block_sse,
 ) -> tuple[int, dict[str, str], AsyncIterator[bytes]]:
     """Forward a streaming request and apply guardrails.
 
@@ -320,7 +436,7 @@ async def proxy_streaming(
     return (
         response.status_code,
         resp_headers,
-        _guarded_stream(response, guard),
+        _guarded_stream(response, guard, block_sse_events=block_sse_events),
     )
 
 
@@ -339,6 +455,7 @@ async def proxy_non_streaming(
     body: bytes,
     messages: list[dict[str, str]],
     sense_kwargs: dict[str, Any],
+    block_response: Callable[[str], bytes] = _openai_block_response,
 ) -> tuple[int, dict[str, str], bytes]:
     """Forward a non-streaming request with parallel sensor checks.
 
@@ -426,7 +543,7 @@ async def proxy_non_streaming(
         return (
             200,
             {"content-type": "application/json"},
-            _openai_block_response(_INPUT_BLOCK_MSG),
+            block_response(_INPUT_BLOCK_MSG),
         )
 
     # Output guard
@@ -444,7 +561,7 @@ async def proxy_non_streaming(
                 return (
                     200,
                     {"content-type": "application/json"},
-                    _openai_block_response(_OUTPUT_BLOCK_MSG),
+                    block_response(_OUTPUT_BLOCK_MSG),
                 )
     except StihiaError:
         logger.exception("Stihia output guard error (fail-open)")

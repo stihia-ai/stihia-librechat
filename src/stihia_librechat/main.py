@@ -26,7 +26,14 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from stihia import StihiaClient
 from stihia_librechat import adapters
-from stihia_librechat.proxy import proxy_non_streaming, proxy_streaming
+from stihia_librechat.proxy import (
+    _anthropic_block_response,
+    _anthropic_block_sse,
+    _gemini_block_response,
+    _gemini_block_sse,
+    proxy_non_streaming,
+    proxy_streaming,
+)
 from stihia_librechat.settings import Settings
 
 if TYPE_CHECKING:
@@ -429,6 +436,7 @@ async def anthropic_proxy(request: Request) -> Response:
             messages=messages,
             sense_kwargs=sense_kwargs,
             chunk_to_text=adapters.anthropic_chunk_text,
+            block_sse_events=_anthropic_block_sse,
         )
         return StreamingResponse(
             stream,
@@ -446,6 +454,7 @@ async def anthropic_proxy(request: Request) -> Response:
         body=raw_body,
         messages=messages,
         sense_kwargs=sense_kwargs,
+        block_response=_anthropic_block_response,
     )
     return Response(content=content, status_code=status, headers=headers)
 
@@ -504,6 +513,7 @@ async def gemini_generate(request: Request, model_id: str) -> Response:
         body=raw_body,
         messages=messages,
         sense_kwargs=sense_kwargs,
+        block_response=_gemini_block_response,
     )
     return Response(content=content, status_code=status, headers=headers)
 
@@ -563,6 +573,7 @@ async def gemini_stream(request: Request, model_id: str) -> Response:
         messages=messages,
         sense_kwargs=sense_kwargs,
         chunk_to_text=adapters.gemini_chunk_text,
+        block_sse_events=_gemini_block_sse,
     )
     return StreamingResponse(
         stream,

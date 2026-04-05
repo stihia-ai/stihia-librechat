@@ -872,3 +872,153 @@ class TestAnthropicAndGeminiTracking:
         assert "provider=anthropic" in caplog.text
         assert "claude-sonnet-4-6" in caplog.text
         mod._stihia_client = None
+
+
+class TestAnthropicGuardrailBlockFormat:
+    """Anthropic input block returns Anthropic-format response, not OpenAI."""
+
+    def test_input_block_returns_anthropic_format(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("high"))
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "ok"}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/messages",
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "bad input"}],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "message"
+        assert data["role"] == "assistant"
+        assert data["content"][0]["type"] == "text"
+        assert "blocked" in data["content"][0]["text"].lower() or "guardrail" in data["content"][0]["text"].lower()
+        mod._stihia_client = None
+
+    def test_output_block_returns_anthropic_format(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        input_op = _make_sense_operation("low")
+        output_op = _make_sense_operation("high")
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[input_op, output_op])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"content": [{"type": "text", "text": "bad output"}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1/messages",
+            json={
+                "model": "claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "normal"}],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.anthropic.com"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "message"
+        assert data["content"][0]["type"] == "text"
+        mod._stihia_client = None
+
+
+class TestGeminiGuardrailBlockFormat:
+    """Gemini input block returns Gemini-format response, not OpenAI."""
+
+    def test_input_block_returns_gemini_format(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("high"))
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1beta/models/gemini-2.5-flash:generateContent",
+            json={
+                "contents": [{"role": "user", "parts": [{"text": "bad input"}]}],
+            },
+            headers={"X-Upstream-Base-URL": "https://generativelanguage.googleapis.com"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "candidates" in data
+        assert data["candidates"][0]["content"]["role"] == "model"
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        assert "blocked" in text.lower() or "guardrail" in text.lower()
+        mod._stihia_client = None
+
+    def test_output_block_returns_gemini_format(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        input_op = _make_sense_operation("low")
+        output_op = _make_sense_operation("high")
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[input_op, output_op])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "bad output"}]}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+
+        resp = client.post(
+            "/v1beta/models/gemini-2.5-flash:generateContent",
+            json={
+                "contents": [{"role": "user", "parts": [{"text": "normal"}]}],
+            },
+            headers={"X-Upstream-Base-URL": "https://generativelanguage.googleapis.com"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "candidates" in data
+        assert data["candidates"][0]["content"]["role"] == "model"
+        mod._stihia_client = None
