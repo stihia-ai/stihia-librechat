@@ -45,6 +45,21 @@ def _tool_calls_text(tool_calls: list[dict[str, Any]]) -> str:
 # -- OpenAI ----------------------------------------------------------------
 
 
+def latest_with_system(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Return only the system prompt(s) and the latest non-system message.
+
+    Used to send minimal context to the Stihia API instead of the full
+    chat history.  The upstream LLM still receives the complete payload.
+    """
+    if not messages:
+        return []
+    system = [m for m in messages if m["role"] == "system"]
+    for m in reversed(messages):
+        if m["role"] != "system":
+            return [*system, m]
+    return system
+
+
 def openai_messages(body: dict[str, Any]) -> list[dict[str, str]]:
     """Extract messages from an OpenAI ``/v1/chat/completions`` request."""
     out: list[dict[str, str]] = []

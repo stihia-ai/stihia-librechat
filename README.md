@@ -177,7 +177,9 @@ provider while applying Stihia `SenseGuard` sensors in parallel.
 ### Streaming vs non-streaming
 
 - **Streaming**: Uses `SenseGuard.shield()` to wrap the upstream SSE stream.
-  Input sensors gate the first chunk; output sensors run on stream completion.
+  Input sensors gate the first chunk; output sensors run periodically every 30 chunks
+  during streaming and once more on stream completion. If a threat is detected
+  mid-stream, the proxy appends a block message and terminates the response.
 - **Non-streaming**: Input sensors and LLM request run in parallel. If input
   triggers, the LLM response is discarded and an error is returned. Output
   sensors run on the complete response before it is returned.

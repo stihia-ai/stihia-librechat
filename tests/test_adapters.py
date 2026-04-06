@@ -4,6 +4,7 @@ import json
 
 from stihia_librechat.adapters import (
     _parse_sse_data,
+    latest_with_system,
     openai_chunk_text,
     openai_messages,
 )
@@ -118,6 +119,89 @@ class TestOpenAIMessages:
         result = openai_messages(body)
         assert "[tool_call: fn_a({})]" in result[0]["content"]
         assert '[tool_call: fn_b({"x":1})]' in result[0]["content"]
+
+
+# -- latest_with_system ------------------------------------------------------
+
+
+class TestLatestWithSystem:
+    def test_empty_returns_empty(self):
+        assert latest_with_system([]) == []
+
+    def test_single_user_message(self):
+        msgs = [{"role": "user", "content": "Hello"}]
+        assert latest_with_system(msgs) == [{"role": "user", "content": "Hello"}]
+
+    def test_system_plus_user(self):
+        msgs = [
+            {"role": "system", "content": "Be helpful."},
+            {"role": "user", "content": "Hi"},
+        ]
+        assert latest_with_system(msgs) == msgs
+
+    def test_full_conversation_keeps_only_system_and_latest(self):
+        msgs = [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "First question"},
+            {"role": "assistant", "content": "First answer"},
+            {"role": "user", "content": "Second question"},
+        ]
+        assert latest_with_system(msgs) == [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Second question"},
+        ]
+
+    def test_latest_is_assistant(self):
+        msgs = [
+            {"role": "system", "content": "Sys"},
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A"},
+        ]
+        assert latest_with_system(msgs) == [
+            {"role": "system", "content": "Sys"},
+            {"role": "assistant", "content": "A"},
+        ]
+
+    def test_no_system_message(self):
+        msgs = [
+            {"role": "user", "content": "Q1"},
+            {"role": "assistant", "content": "A1"},
+            {"role": "user", "content": "Q2"},
+        ]
+        assert latest_with_system(msgs) == [{"role": "user", "content": "Q2"}]
+
+    def test_only_system_messages(self):
+        msgs = [
+            {"role": "system", "content": "A"},
+            {"role": "system", "content": "B"},
+        ]
+        assert latest_with_system(msgs) == msgs
+
+    def test_multiple_system_messages_preserved(self):
+        msgs = [
+            {"role": "system", "content": "Rule 1"},
+            {"role": "system", "content": "Rule 2"},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+            {"role": "user", "content": "Bye"},
+        ]
+        assert latest_with_system(msgs) == [
+            {"role": "system", "content": "Rule 1"},
+            {"role": "system", "content": "Rule 2"},
+            {"role": "user", "content": "Bye"},
+        ]
+
+    def test_tool_role_as_latest(self):
+        msgs = [
+            {"role": "system", "content": "Sys"},
+            {"role": "user", "content": "Search for X"},
+            {"role": "assistant", "content": "Calling tool"},
+            {"role": "tool", "content": "Tool result"},
+        ]
+        assert latest_with_system(msgs) == [
+            {"role": "system", "content": "Sys"},
+            {"role": "tool", "content": "Tool result"},
+        ]
 
 
 # ============================================================================

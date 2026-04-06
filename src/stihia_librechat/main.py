@@ -295,12 +295,13 @@ async def openai_proxy(request: Request) -> Response:
         )
 
     messages = adapters.openai_messages(body)
+    stihia_messages = adapters.latest_with_system(messages)
     process_key = body.get("model", "unknown")
     _warn_if_skipping_guardrails(
         provider="openai",
         process_key=process_key,
         body=body,
-        messages=messages,
+        messages=stihia_messages,
     )
     sense_kwargs = _extract_sense_kwargs(
         request,
@@ -319,7 +320,7 @@ async def openai_proxy(request: Request) -> Response:
             method="POST",
             headers=_raw_headers(request),
             body=raw_body,
-            messages=messages,
+            messages=stihia_messages,
             sense_kwargs=sense_kwargs,
             chunk_to_text=adapters.openai_chunk_text,
         )
@@ -337,7 +338,7 @@ async def openai_proxy(request: Request) -> Response:
         method="POST",
         headers=_raw_headers(request),
         body=raw_body,
-        messages=messages,
+        messages=stihia_messages,
         sense_kwargs=sense_kwargs,
     )
     return Response(content=content, status_code=status, headers=headers)

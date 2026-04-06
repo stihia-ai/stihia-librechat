@@ -258,3 +258,28 @@ class TestGuardedStreamBlocked:
             chunks.append(chunk)
 
         assert chunks == [b"data: chunk1\n\n", b"data: chunk2\n\n"]
+
+    @pytest.mark.asyncio
+    async def test_emits_sse_on_midstream_output_trigger(self):
+        class FakeResponse:
+            async def aclose(self):
+                pass
+
+        class FakeGuard:
+            input_triggered = False
+            output_triggered = True
+
+            async def shield(self, stream):
+                yield b"data: chunk1\n\n"
+                yield b"data: chunk2\n\n"
+
+        chunks = []
+        async for chunk in _guarded_stream(FakeResponse(), FakeGuard()):
+            chunks.append(chunk)
+
+        assert chunks[0] == b"data: chunk1\n\n"
+        assert chunks[1] == b"data: chunk2\n\n"
+        assert len(chunks) == 6
+        content_data = json.loads(chunks[3].decode().removeprefix("data: ").strip())
+        assert _OUTPUT_BLOCK_MSG in content_data["choices"][0]["delta"]["content"]
+        assert chunks[5] == b"data: [DONE]\n\n"

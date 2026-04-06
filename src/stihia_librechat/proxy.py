@@ -211,10 +211,11 @@ async def _guarded_stream(
             yielded_any = True
             yield chunk
 
-        if not yielded_any and guard.input_triggered:
-            for event in block_sse_events(_INPUT_BLOCK_MSG):
-                yield event
-        elif not yielded_any and guard.output_triggered:
+        if guard.input_triggered:
+            if not yielded_any:
+                for event in block_sse_events(_INPUT_BLOCK_MSG):
+                    yield event
+        elif guard.output_triggered:
             for event in block_sse_events(_OUTPUT_BLOCK_MSG):
                 yield event
     finally:
@@ -277,7 +278,7 @@ async def proxy_streaming(
         messages=messages,
         input_sensor="default-input-think",
         output_sensor="default-output",
-        output_check_interval=None,  # final-only
+        output_check_interval=30,  # check output every 30 chunks during streaming
         chunk_to_text=chunk_to_text or (lambda c: c.decode("utf-8", errors="replace")),
         raise_on_trigger=False,
         fail_open=True,
