@@ -83,7 +83,7 @@ For production or persistent local sessions, set these values explicitly in
 ### Step 3 — Launch
 
 ```bash
-docker compose up
+docker compose up --build
 ```
 
 This starts the entire stack: LibreChat, MongoDB, Meilisearch, the RAG API
@@ -148,7 +148,7 @@ cp .env.example .env
 # Edit .env — add your STIHIA_API_KEY and OPENAI_API_KEY
 
 # 2. Launch everything
-docker compose up
+docker compose up --build
 ```
 
 LibreChat is available at **http://localhost:3080**.

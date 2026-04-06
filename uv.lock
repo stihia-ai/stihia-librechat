@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.12"
 
 [options]
-exclude-newer = "2026-03-30T14:24:48.762883Z"
+exclude-newer = "2026-03-30T15:04:22.713586Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
@@ -556,15 +556,15 @@ wheels = [
 
 [[package]]
 name = "stihia"
-version = "0.2.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/0e/9e7b43e1939a54a0624de69981669e039c3321356d18579c4a45c77c1f53/stihia-0.2.0.tar.gz", hash = "sha256:0aa9206ff1d4ee301e3a95b9b6ab2cdc287646c30bebc9746e91b453d27cc71e", size = 66555, upload-time = "2026-04-06T11:49:53.066Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/a5/e06ecd02ed3ce8812118540c730d1b720063e0289291dec9564720609359/stihia-0.2.1.tar.gz", hash = "sha256:d0bc48d85e3ade8fb821b5349e6f7ec322868160dd6608f6a7fc114de2f63a96", size = 68200, upload-time = "2026-04-06T15:00:39.031Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/06/a627d697c12c59d9e24b423acd8db902201add1bba28960dc640f2b1744a/stihia-0.2.0-py3-none-any.whl", hash = "sha256:bfc71232c6859070cbb7e9eba9fd7249ff140c298637555bf318828a146fb900", size = 29151, upload-time = "2026-04-06T11:49:51.519Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/27/136b81743946cc5ff6ca4b5a62c3f10fac8833f8fac966d4d6a1a2f3396f/stihia-0.2.1-py3-none-any.whl", hash = "sha256:9aec171a88224c567daf33b9efbf87118ae43bb8d384e32d98d8c1f917def2c8", size = 29437, upload-time = "2026-04-06T15:00:37.862Z" },
 ]
 
 [[package]]
