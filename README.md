@@ -189,7 +189,7 @@ returned to the user. Errors are logged to stderr.
 For local onboarding, auto-generated/default values reduce setup friction.
 
 For production, set unique values for all auth and database secrets through your
-deployment environment or a non-committed `.env` file.
+deployment environment.
 
 When storing passwords in `.env`, escape each `$` as `$$`. Docker Compose
 interpolates `.env` values, so an unescaped `$` can silently corrupt a strong password.
