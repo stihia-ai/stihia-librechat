@@ -54,15 +54,7 @@ _settings: Settings | None = None
 _http_client: httpx.AsyncClient | None = None
 _stihia_client: StihiaClient | None = None
 
-# Default provider hosts accepted by the proxy. Configurable via
-# ALLOWED_UPSTREAM_HOSTS in settings.
-_DEFAULT_ALLOWED_HOSTS: frozenset[str] = frozenset(
-    {
-        "api.openai.com",
-    }
-)
-
-_allowed_hosts: frozenset[str] = _DEFAULT_ALLOWED_HOSTS
+_allowed_hosts: frozenset[str] = frozenset()
 
 
 def _get_http_client() -> httpx.AsyncClient:
@@ -101,10 +93,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         logger.warning("STIHIA_API_KEY not set — guardrails disabled")
 
-    if settings.ALLOWED_UPSTREAM_HOSTS:
-        _allowed_hosts = frozenset(h.strip().lower() for h in settings.ALLOWED_UPSTREAM_HOSTS.split(",") if h.strip())
-    else:
-        _allowed_hosts = _DEFAULT_ALLOWED_HOSTS
+    _allowed_hosts = frozenset(h.strip().lower() for h in settings.ALLOWED_UPSTREAM_HOSTS.split(",") if h.strip())
 
     yield
 

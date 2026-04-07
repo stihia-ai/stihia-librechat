@@ -41,7 +41,9 @@ def client():
         STIHIA_PROJECT_KEY="test",
     )
     # Ensure the default hosts are in the allowlist
-    mod._allowed_hosts = mod._DEFAULT_ALLOWED_HOSTS
+    mod._allowed_hosts = frozenset(
+        h.strip().lower() for h in mod._settings.ALLOWED_UPSTREAM_HOSTS.split(",") if h.strip()
+    )
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
     mod._http_client = None

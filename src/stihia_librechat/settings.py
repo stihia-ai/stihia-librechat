@@ -34,8 +34,7 @@ class Settings(BaseSettings):
     STIHIA_SEND_FULL_HISTORY: bool = True
 
     # Upstream allowlist (comma-separated hostnames).
-    # Empty string means use the built-in defaults.
-    ALLOWED_UPSTREAM_HOSTS: str = ""
+    ALLOWED_UPSTREAM_HOSTS: str = "api.openai.com"
 
     # Server
     HOST: str = "0.0.0.0"
