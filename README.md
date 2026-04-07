@@ -4,26 +4,12 @@
 [![License](https://img.shields.io/github/license/stihia-ai/stihia-librechat)](LICENSE)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 
-Dockerised LibreChat setup with a Stihia AI security proxy for real-time threat detection.
+Dockerised [LibreChat](https://www.librechat.ai/) setup with a [Stihia](https://stihia.ai/) AI security proxy for real-time threat detection.
 
-## Vision & Scope
+## Vision
 
 **Goal:** Provide a turnkey, self-hosted LibreChat deployment with built-in
 real-time threat detection powered by Stihia.
-
-**In scope:**
-
-- Transparent HTTP proxy that applies [Stihia](https://stihia.ai)
-  real-time threat detection to LLM requests.
-- Docker Compose stack that bundles LibreChat, MongoDB, Meilisearch, RAG API,
-  and the Stihia AI security proxy.
-- Configuration and deployment documentation.
-
-**Out of scope:**
-
-- The Stihia AI security engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
-- LibreChat core development — this repo uses official LibreChat Docker images.
-- Hosting or managed service offerings.
 
 ## Getting Started
 
@@ -46,6 +32,10 @@ interface in under 10 minutes.
 
 ### Step 1 — Create your Stihia account and API key
 
+> **Note:** By default this project connects to the **cloud-hosted Stihia platform** ([api.stihia.ai](https://api.stihia.ai)).
+> To use a locally hosted Stihia instance instead, set the `STIHIA_API_URL` environment variable in your `.env` file
+> (see [Environment variables](#environment-variables)).
+
 1. Sign up for a free account at **[app.stihia.ai](https://app.stihia.ai)**.
 2. Create a new **organization** — this is where your projects, team members,
    and API keys live.
@@ -62,8 +52,12 @@ interface in under 10 minutes.
 ```bash
 git clone https://github.com/stihia-ai/stihia-librechat.git
 cd stihia-librechat
-cp .env.example .env
+cp .env.example .env  # Create a local .env file from the example template
 ```
+
+> [!CAUTION]
+> Storing unencrypted credentials in `.env` is not recommended for production.
+> Use a secrets manager or encrypted vault solution where possible.
 
 Open `.env` in your editor and fill in:
 
@@ -72,13 +66,11 @@ Open `.env` in your editor and fill in:
 | `STIHIA_API_KEY` | The `sk_…` key from Step 1 |
 | `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 
-
 `CREDS_KEY`, `CREDS_IV`, `JWT_SECRET`, and `JWT_REFRESH_SECRET` are
 auto-generated during `docker compose up` when left blank. RAG Postgres
-credentials also have local defaults when unset.
-
-For production or persistent local sessions, set these values explicitly in
-`.env`. See [Environment variables](#environment-variables) for details.
+credentials also have local defaults when unset. If running on production,
+make sure to set these values explicitly as environment variables.
+See [Environment variables](#environment-variables) for details.
 
 ### Step 3 — Launch
 
@@ -113,45 +105,6 @@ compliance, custom threat categories, or tuned sensitivity, contact
 For the full API surface, see the
 **[Stihia API Reference](https://stihia.ai/api/reference/)** and the
 **[Stihia Python SDK](https://github.com/stihia-ai/stihia-sdk-python)**.
-
-## Contributing
-
-Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
-before opening a pull request. This project follows a
-[Code of Conduct](CODE_OF_CONDUCT.md).
-
-To report a security vulnerability see [SECURITY.md](SECURITY.md).
-
-## Third-party licensing
-
-This bundle is designed to run with the official LibreChat images. LibreChat is
-a separate open-source project licensed under the [MIT License](https://github.com/danny-avila/LibreChat/blob/main/LICENSE).
-
-This repository contains the Stihia integration and configuration for that
-deployment and does not include LibreChat source code.
-
-## What's included
-
-| File | Purpose |
-|---|---|
-| `docker-compose.yml` | Full LibreChat stack (MongoDB, Meilisearch, RAG API) + Stihia Proxy |
-| `librechat.yaml` | Custom endpoints that route LLM requests through the proxy |
-| `.env.example` | Template for API keys |
-| `Dockerfile` | Multi-stage build for the proxy service |
-| `src/stihia_librechat/` | FastAPI proxy source code |
-
-## Quick start
-
-```bash
-# 1. Configure your API keys
-cp .env.example .env
-# Edit .env — add your STIHIA_API_KEY and OPENAI_API_KEY
-
-# 2. Launch everything
-docker compose up --build
-```
-
-LibreChat is available at **http://localhost:3080**.
 
 ## Architecture
 
@@ -200,6 +153,16 @@ If the Stihia API is unreachable or returns an error, the proxy **does not
 block LibreChat**. LLM requests are forwarded normally and responses are
 returned to the user. Errors are logged to stderr.
 
+## What's included
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | Full LibreChat stack (MongoDB, Meilisearch, RAG API) + Stihia Proxy |
+| `librechat.yaml` | Custom endpoints that route LLM requests through the proxy |
+| `.env.example` | Template for API keys and other environment variables |
+| `Dockerfile` | Multi-stage build for the proxy service |
+| `src/stihia_librechat/` | FastAPI proxy source code |
+
 ## Environment variables
 
 | Variable | Default | Description |
@@ -236,6 +199,20 @@ If you upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuil
 the `vectordb_data` volume first. Reusing a PostgreSQL 15 data directory with PostgreSQL 16+
 or 17 will fail at container startup.
 
+## Docker images
+
+`docker compose up --build` pulls the following images:
+
+| Image | Service | Purpose |
+|---|---|---|
+| `librechat/librechat:v0.8.4` | `librechat` | Chat web application ([Docker Hub](https://hub.docker.com/r/librechat/librechat)) |
+| `mongo:7` | `mongodb` | Document database for LibreChat conversations, users, and settings |
+| `getmeili/meilisearch:v1.12.8` | `meilisearch` | Full-text search engine for chat history |
+| `pgvector/pgvector:0.8.2-pg15` | `vectordb` | PostgreSQL with pgvector extension for RAG embeddings |
+| `ghcr.io/danny-avila/librechat-rag-api-dev-lite:v0.7.3` | `rag_api` | Retrieval-augmented generation API for file uploads and search |
+| `python:3.14-slim` | `stihia-proxy` (build) | Base image for the Stihia security proxy |
+| `ghcr.io/astral-sh/uv:latest` | `stihia-proxy` (build) | Provides the `uv` package manager binary during build |
+
 ## Development
 
 Run the proxy locally (without Docker):
@@ -271,3 +248,39 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
 ```
+
+## Scope
+
+**In scope:**
+
+- Transparent HTTP proxy that applies [Stihia](https://stihia.ai)
+  real-time threat detection to LLM requests.
+- Docker Compose stack that bundles LibreChat, MongoDB, Meilisearch, RAG API,
+  and the Stihia AI security proxy.
+- Configuration and deployment documentation.
+
+**Out of scope:**
+
+- The Stihia AI security engine itself (provided by the Stihia API and wrapped by the [`stihia`](https://github.com/stihia-ai/stihia-sdk-python) Python SDK package).
+- LibreChat core development — this repo uses official LibreChat Docker images.
+- Hosting or managed service offerings.
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
+before opening a pull request. This project follows a
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+To report a security vulnerability see [SECURITY.md](SECURITY.md).
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
+
+### Third-party licensing
+
+This bundle is designed to run with the official LibreChat images. LibreChat is
+a separate open-source project licensed under the [MIT License](https://github.com/danny-avila/LibreChat/blob/main/LICENSE).
+
+This repository contains the Stihia integration and configuration for that
+deployment and does not include LibreChat source code.
