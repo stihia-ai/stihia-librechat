@@ -39,9 +39,9 @@ interface in under 10 minutes.
 1. Sign up for a free account at **[app.stihia.ai](https://app.stihia.ai)**.
 2. Create a new **organization** — this is where your projects, team members,
    and API keys live.
-3. *(Optional)* Go to **[Organization → Notification Settings](https://app.stihia.ai/organization)**
+3. *(Optional)* Go to **[Your Profile → Organization → Notification Settings](https://app.stihia.ai/organization)**
    to receive email alerts when Stihia detects a threat.
-4. Navigate to **[Organization → API Keys](https://app.stihia.ai/organization)**
+4. Navigate to **[Your Profile → Organization → API Keys](https://app.stihia.ai/organization)**
    and click **Create API Key**. Copy the key (it starts with `sk_`).
 
 > **Keep your API key safe.** Treat it like a password — never commit it to
