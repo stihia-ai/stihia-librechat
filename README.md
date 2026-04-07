@@ -89,6 +89,9 @@ with pgvector, and the Stihia security proxy.
    proxy, which runs real-time threat detection on both inputs and outputs
    (see [Architecture](#architecture)).
 
+> **Note:** You may experience an initial delay in the response to your first message.
+> This is normal as the system initializes. Subsequent messages should be faster.
+
 ### Step 5 — View your threat detection traces
 
 Open the **[Stihia Console → Threads](https://app.stihia.ai/threads)** to see
