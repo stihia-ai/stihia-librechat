@@ -295,7 +295,8 @@ async def openai_proxy(request: Request) -> Response:
         )
 
     messages = adapters.openai_messages(body)
-    stihia_messages = adapters.latest_with_system(messages)
+    settings = _get_settings()
+    stihia_messages = messages if settings.STIHIA_SEND_FULL_HISTORY else adapters.latest_with_system(messages)
     process_key = body.get("model", "unknown")
     _warn_if_skipping_guardrails(
         provider="openai",

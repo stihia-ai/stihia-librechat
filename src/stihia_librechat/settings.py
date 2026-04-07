@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     STIHIA_API_URL: str = "https://api.stihia.ai"
     STIHIA_PROJECT_KEY: str = "librechat"
     STIHIA_LIBRECHAT_VERSION: str = Field(default_factory=get_package_version)
+    STIHIA_SEND_FULL_HISTORY: bool = True
 
     # Upstream allowlist (comma-separated hostnames).
     # Empty string means use the built-in defaults.

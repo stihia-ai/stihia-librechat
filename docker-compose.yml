@@ -98,6 +98,7 @@ services:
       - STIHIA_API_KEY=${STIHIA_API_KEY:-}
       - STIHIA_API_URL=${STIHIA_API_URL:-https://api.stihia.ai}
       - STIHIA_PROJECT_KEY=${STIHIA_PROJECT_KEY:-librechat}
+      - STIHIA_SEND_FULL_HISTORY=${STIHIA_SEND_FULL_HISTORY:-true}
       - LOG_LEVEL=${STIHIA_LOG_LEVEL:-INFO}
     restart: unless-stopped
     healthcheck:

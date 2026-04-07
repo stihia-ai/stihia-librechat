@@ -382,6 +382,117 @@ class TestGuardrailFailOpen:
 
 
 # ---------------------------------------------------------------------------
+# STIHIA_SEND_FULL_HISTORY toggle
+# ---------------------------------------------------------------------------
+
+
+class TestSendFullHistory:
+    """STIHIA_SEND_FULL_HISTORY controls whether the full message history is sent."""
+
+    def test_default_sends_filtered_messages(self, client):
+        """Default (false): only system + latest message sent to Stihia."""
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("low"))
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+        mod._settings = mod.Settings(
+            STIHIA_API_KEY="test",
+            STIHIA_PROJECT_KEY="test",
+            STIHIA_SEND_FULL_HISTORY=False,
+        )
+
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "messages": [
+                    {"role": "system", "content": "Be helpful."},
+                    {"role": "user", "content": "First"},
+                    {"role": "assistant", "content": "Reply"},
+                    {"role": "user", "content": "Second"},
+                ],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.openai.com"},
+        )
+        assert resp.status_code == 200
+
+        # Input guard receives filtered messages (system + latest only)
+        input_call = mock_stihia.asense.call_args_list[0]
+        sent_messages = input_call.kwargs["messages"]
+        assert len(sent_messages) == 2
+        assert sent_messages[0]["role"] == "system"
+        assert sent_messages[1]["content"] == "Second"
+
+        mod._stihia_client = None
+        mod._settings = None
+
+    def test_full_history_sends_all_messages(self, client):
+        """STIHIA_SEND_FULL_HISTORY=true: full conversation sent to Stihia."""
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(return_value=_make_sense_operation("low"))
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+        mod._settings = mod.Settings(
+            STIHIA_API_KEY="test",
+            STIHIA_PROJECT_KEY="test",
+            STIHIA_SEND_FULL_HISTORY=True,
+        )
+
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "messages": [
+                    {"role": "system", "content": "Be helpful."},
+                    {"role": "user", "content": "First"},
+                    {"role": "assistant", "content": "Reply"},
+                    {"role": "user", "content": "Second"},
+                ],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.openai.com"},
+        )
+        assert resp.status_code == 200
+
+        # Input guard receives all 4 messages
+        input_call = mock_stihia.asense.call_args_list[0]
+        sent_messages = input_call.kwargs["messages"]
+        assert len(sent_messages) == 4
+        assert sent_messages[0] == {"role": "system", "content": "Be helpful."}
+        assert sent_messages[1] == {"role": "user", "content": "First"}
+        assert sent_messages[2] == {"role": "assistant", "content": "Reply"}
+        assert sent_messages[3] == {"role": "user", "content": "Second"}
+
+        mod._stihia_client = None
+        mod._settings = None
+
+
+# ---------------------------------------------------------------------------
 # Title request detection
 # ---------------------------------------------------------------------------
 

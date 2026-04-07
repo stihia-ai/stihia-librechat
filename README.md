@@ -207,6 +207,7 @@ returned to the user. Errors are logged to stderr.
 | `STIHIA_API_KEY` | *(empty)* | Stihia API key (guardrails disabled when empty) |
 | `STIHIA_API_URL` | `https://api.stihia.ai` | Stihia API base URL |
 | `STIHIA_PROJECT_KEY` | `librechat` | Stihia project key |
+| `STIHIA_SEND_FULL_HISTORY` | `true` | Send full conversation history to Stihia instead of only the system prompt and latest message |
 | `ALLOWED_UPSTREAM_HOSTS` | *(see below)* | Comma-separated allowlist of upstream hostnames |
 | `LOG_LEVEL` | `INFO` | Python logging level |
 | `OPENAI_API_KEY` | — | OpenAI API key (passed through to provider) |
