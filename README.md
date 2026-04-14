@@ -78,19 +78,52 @@ See [Environment variables](#environment-variables) for details.
 docker compose up --build
 ```
 
+On Linux, add `sudo` only if your current user does not have permission to talk
+to the Docker daemon on that host.
+
 This starts the entire stack: LibreChat, MongoDB, Meilisearch, the RAG API
 with pgvector, and the Stihia security proxy.
 
+`docker compose up --build` stays attached to container logs. That is normal.
+The stack can still be healthy and usable while logs continue to stream.
+
+If you want it to keep running in the background instead:
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+```
+
+Stop the stack with:
+
+```bash
+docker compose down
+```
+
+The Compose services already use `restart: unless-stopped`, so detached mode is
+usually enough. You do not need to wrap the bundle in an extra OS service for a
+normal installation.
+
 ### Step 4 — Start chatting
 
-1. Open **[http://localhost:3080](http://localhost:3080)** and create your
-   local LibreChat account.
-2. Pick a model and send a message. Every request now flows through the Stihia
+1. Open the LibreChat URL for your deployment:
+   - Local machine: **[http://localhost:3080](http://localhost:3080)**
+   - Another machine on your LAN or VPN: `http://<server-ip-or-hostname>:3080`
+   - Reverse-proxied deployment: your configured LibreChat domain
+2. Create a new LibreChat user on first login.
+   Your LibreChat account is separate from your Stihia account and API key.
+3. If LibreChat opens on the MCP view first, click **Start chatting** to switch
+   to the regular chat interface.
+4. Pick a model and send a message. Every request now flows through the Stihia
    proxy, which runs real-time threat detection on both inputs and outputs
    (see [Architecture](#architecture)).
 
 > **Note:** You may experience an initial delay in the response to your first message.
 > This is normal as the system initializes. Subsequent messages should be faster.
+
+> **Note:** If this bundle is deployed behind a reverse proxy or on a shared
+> server, set `DOMAIN_CLIENT`, `DOMAIN_SERVER`, and `TRUST_PROXY` in `.env`
+> before handing it to other users. See [LibreChat docs](#librechat-docs).
 
 ### Step 5 — View your threat detection traces
 
@@ -98,12 +131,60 @@ Open the **[Stihia Console → Threads](https://app.stihia.ai/threads)** to see
 a live timeline of every detection, drill into individual traces, and review
 threat severity across your project.
 
-### Need custom sensors?
+### What Stihia sees
 
-The built-in sensors (`default-input-think`, `default-output`) cover general
-threats like common prompt injections, PII leakage, or destructive actions. If you need industry-specific
-compliance, custom threat categories, or tuned sensitivity, contact
-**[support@stihia.ai](mailto:support@stihia.ai)**.
+- In this bundle, LibreChat is configured to expose the custom endpoint that
+  routes model traffic through the Stihia proxy.
+- That means AI chat requests in the default bundle flow through Stihia before
+  they reach the upstream model provider.
+- By default, `STIHIA_SEND_FULL_HISTORY=true`, so the full conversation history
+  is sent to Stihia for evaluation. Set it to `false` if you want Stihia to see
+  only the system prompt(s) and latest message.
+- Provider API keys such as `OPENAI_API_KEY` are forwarded to the model
+  provider and are not sent to Stihia.
+- Detection traces are visible in the [Stihia Console](https://app.stihia.ai/threads) so security teams can
+  review what was flagged.
+
+### What can I configure?
+
+**Stihia guardrails**
+
+- `STIHIA_INPUT_SENSOR` controls which Stihia sensor evaluates incoming user
+  prompts.
+- `STIHIA_OUTPUT_SENSOR` controls which Stihia sensor evaluates model outputs.
+- The default sensors (`default-input-think`, `default-output`) cover common
+  prompt injections, PII leakage, and destructive actions.
+- To switch to a different Stihia sensor, set the sensor name in `.env` and
+  restart the stack.
+
+Example:
+
+```bash
+STIHIA_INPUT_SENSOR=default-input-think
+STIHIA_OUTPUT_SENSOR=default-output
+```
+
+See the [API reference](https://stihia.ai/api/reference/) for more details about sensors.
+
+If you already have custom sensors in your Stihia project, point these
+variables at those sensor names. If you need industry-specific compliance,
+custom threat categories, or tuned sensitivity,
+contact **[support@stihia.ai](mailto:support@stihia.ai)**.
+
+**LibreChat access and abuse controls**
+
+- `ALLOW_REGISTRATION` controls whether users can self-register.
+- LibreChat also supports login, registration, and message rate limits, plus
+  automated banning for abuse. See [LibreChat docs](#librechat-docs) for
+  `LOGIN_MAX`, `REGISTER_MAX`, `BAN_VIOLATIONS`, `LIMIT_MESSAGE_IP`, and
+  related settings.
+
+**Deployment controls**
+
+- `ALLOWED_UPSTREAM_HOSTS` restricts which upstream model hosts the proxy may
+  contact.
+- `DOMAIN_CLIENT`, `DOMAIN_SERVER`, and `TRUST_PROXY` matter when exposing the
+  bundle on a server, VPN, or public domain.
 
 For the full API surface, see the
 **[Stihia API Reference](https://stihia.ai/api/reference/)** and the
@@ -156,6 +237,23 @@ If the Stihia API is unreachable or returns an error, the proxy **does not
 block LibreChat**. LLM requests are forwarded normally and responses are
 returned to the user. Errors are logged to stderr.
 
+### Resource sizing
+
+This bundle runs more than the LibreChat web UI. The default Docker stack starts
+LibreChat, MongoDB, Meilisearch, the RAG API, PostgreSQL with pgvector, and the
+Stihia proxy.
+
+Use the following as conservative starting points rather than hard limits:
+
+| Scenario | CPU | RAM | Disk | Notes |
+|---|---|---|---|---|
+| Local evaluation / demo | 4 vCPU | 8 GB | 20 GB | Enough for trying the bundle with light chat usage |
+| Small shared internal install | 4-8 vCPU | 16 GB | 50 GB | Better fit for multiple users, logs, and RAG data growth |
+| Heavier document / RAG usage | 8+ vCPU | 16+ GB | 100+ GB | Increase disk and RAM as uploads, indexes, and histories grow |
+
+Actual usage depends heavily on concurrent users, retained chat history,
+uploaded files, and whether you use RAG heavily.
+
 ## What's included
 
 | File | Purpose |
@@ -173,10 +271,16 @@ returned to the user. Errors are logged to stderr.
 | `STIHIA_API_KEY` | *(empty)* | Stihia API key (guardrails disabled when empty) |
 | `STIHIA_API_URL` | `https://api.stihia.ai` | Stihia API base URL |
 | `STIHIA_PROJECT_KEY` | `librechat` | Stihia project key |
+| `STIHIA_INPUT_SENSOR` | `default-input-think` | Stihia sensor used for prompt / input inspection |
+| `STIHIA_OUTPUT_SENSOR` | `default-output` | Stihia sensor used for model output inspection |
 | `STIHIA_SEND_FULL_HISTORY` | `true` | Send full conversation history to Stihia instead of only the system prompt and latest message |
 | `ALLOWED_UPSTREAM_HOSTS` | `api.openai.com` | Comma-separated allowlist of upstream hostnames the proxy may contact |
 | `LOG_LEVEL` | `INFO` | Python logging level |
 | `OPENAI_API_KEY` | — | OpenAI API key (passed through to provider) |
+| `ALLOW_REGISTRATION` | `true` | Allow users to self-register a LibreChat account |
+| `DOMAIN_CLIENT` | `http://localhost:3080` | Public browser-facing LibreChat URL for remote or reverse-proxied installs |
+| `DOMAIN_SERVER` | `http://localhost:3080` | Server-side LibreChat base URL for remote or reverse-proxied installs |
+| `TRUST_PROXY` | `1` | Proxy hop count when LibreChat runs behind Nginx, Caddy, Traefik, or a load balancer |
 | `CREDS_KEY` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for credential encryption |
 | `CREDS_IV` | *(auto-generated if empty)* | 16-byte hex IV (32 chars) for credential encryption |
 | `JWT_SECRET` | *(auto-generated if empty)* | 32-byte hex key (64 chars) for signing access tokens |
@@ -201,6 +305,14 @@ with existing PostgreSQL 15 data volumes.
 If you upgrade the pgvector image to a newer PostgreSQL major, migrate or rebuild
 the `vectordb_data` volume first. Reusing a PostgreSQL 15 data directory with PostgreSQL 16+
 or 17 will fail at container startup.
+
+## LibreChat docs
+
+- [Environment variables](https://www.librechat.ai/docs/configuration/dotenv)
+- [Authentication](https://www.librechat.ai/docs/configuration/authentication)
+- [Logging](https://www.librechat.ai/docs/configuration/logging)
+- [Automated moderation and rate limiting](https://www.librechat.ai/docs/configuration/mod_system)
+- [Custom endpoint configuration](https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/custom_endpoint)
 
 ## Docker images
 
