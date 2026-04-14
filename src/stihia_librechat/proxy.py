@@ -243,6 +243,8 @@ async def proxy_streaming(
     body: bytes,
     messages: list[dict[str, str]],
     sense_kwargs: dict[str, Any],
+    input_sensor: str,
+    output_sensor: str,
     chunk_to_text: Callable[[bytes], str] | None = None,
     block_sse_events: Callable[[str], list[bytes]] = _openai_block_sse,
 ) -> tuple[int, dict[str, str], AsyncIterator[bytes]]:
@@ -276,8 +278,8 @@ async def proxy_streaming(
     guard = SenseGuard(
         stihia_client,
         messages=messages,
-        input_sensor="default-input-think",
-        output_sensor="default-output",
+        input_sensor=input_sensor,
+        output_sensor=output_sensor,
         output_check_interval=30,  # check output every 30 chunks during streaming
         chunk_to_text=chunk_to_text or (lambda c: c.decode("utf-8", errors="replace")),
         raise_on_trigger=False,
@@ -307,6 +309,8 @@ async def proxy_non_streaming(
     body: bytes,
     messages: list[dict[str, str]],
     sense_kwargs: dict[str, Any],
+    input_sensor: str,
+    output_sensor: str,
     block_response: Callable[[str], bytes] = _openai_block_response,
 ) -> tuple[int, dict[str, str], bytes]:
     """Forward a non-streaming request with parallel sensor checks.
@@ -345,7 +349,7 @@ async def proxy_non_streaming(
         try:
             op = await stihia_client.asense(
                 messages=messages,
-                sensor="default-input-think",
+                sensor=input_sensor,
                 **sense_kwargs,
             )
             if op.payload and op.payload.sense_result and op.payload.sense_result.aggregated_signal:
@@ -404,7 +408,7 @@ async def proxy_non_streaming(
         output_messages = [*messages, {"role": "assistant", "content": assistant_text}]
         op = await stihia_client.asense(
             messages=output_messages,
-            sensor="default-output",
+            sensor=output_sensor,
             **sense_kwargs,
         )
         if op.payload and op.payload.sense_result and op.payload.sense_result.aggregated_signal:

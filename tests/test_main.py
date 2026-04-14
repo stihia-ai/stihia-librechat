@@ -299,6 +299,7 @@ class TestGuardrailInputBlock:
             "blocked" in data["choices"][0]["message"]["content"].lower()
             or "guardrail" in data["choices"][0]["message"]["content"].lower()
         )
+        assert mock_stihia.asense.await_args.kwargs["sensor"] == "default-input-think"
         mod._stihia_client = None
 
 
@@ -343,7 +344,53 @@ class TestGuardrailOutputBlock:
             "blocked" in data["choices"][0]["message"]["content"].lower()
             or "guardrail" in data["choices"][0]["message"]["content"].lower()
         )
+        assert mock_stihia.asense.await_args_list[0].kwargs["sensor"] == "default-input-think"
+        assert mock_stihia.asense.await_args_list[1].kwargs["sensor"] == "default-output"
         mod._stihia_client = None
+
+
+class TestGuardrailSensorConfiguration:
+    """Custom Stihia sensor names should be read from settings."""
+
+    def test_custom_sensor_names_are_used(self, client):
+        import httpx
+
+        import stihia_librechat.main as mod
+
+        mock_stihia = AsyncMock()
+        mock_stihia.asense = AsyncMock(side_effect=[_make_sense_operation("low"), _make_sense_operation("low")])
+        mod._stihia_client = mock_stihia
+
+        fake_llm = httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "safe output"}}]},
+        )
+
+        async def mock_request(*a, **kw):
+            return fake_llm
+
+        mod._http_client.request = mock_request  # type: ignore[assignment]
+        mod._settings = mod.Settings(
+            STIHIA_API_KEY="test",
+            STIHIA_PROJECT_KEY="test",
+            STIHIA_INPUT_SENSOR="org-input-policy",
+            STIHIA_OUTPUT_SENSOR="org-output-policy",
+        )
+
+        resp = client.post(
+            "/v1/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": False,
+            },
+            headers={"X-Upstream-Base-URL": "https://api.openai.com"},
+        )
+        assert resp.status_code == 200
+        assert mock_stihia.asense.await_args_list[0].kwargs["sensor"] == "org-input-policy"
+        assert mock_stihia.asense.await_args_list[1].kwargs["sensor"] == "org-output-policy"
+
+        mod._stihia_client = None
+        mod._settings = None
 
 
 class TestGuardrailFailOpen:
@@ -392,7 +439,7 @@ class TestSendFullHistory:
     """STIHIA_SEND_FULL_HISTORY controls whether the full message history is sent."""
 
     def test_default_sends_filtered_messages(self, client):
-        """Default (false): only system + latest message sent to Stihia."""
+        """When false: only system + latest message are sent to Stihia."""
         import httpx
 
         import stihia_librechat.main as mod

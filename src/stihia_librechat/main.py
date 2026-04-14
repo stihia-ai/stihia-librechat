@@ -312,6 +312,8 @@ async def openai_proxy(request: Request) -> Response:
             body=raw_body,
             messages=stihia_messages,
             sense_kwargs=sense_kwargs,
+            input_sensor=settings.STIHIA_INPUT_SENSOR,
+            output_sensor=settings.STIHIA_OUTPUT_SENSOR,
             chunk_to_text=adapters.openai_chunk_text,
         )
         return StreamingResponse(
@@ -330,5 +332,7 @@ async def openai_proxy(request: Request) -> Response:
         body=raw_body,
         messages=stihia_messages,
         sense_kwargs=sense_kwargs,
+        input_sensor=settings.STIHIA_INPUT_SENSOR,
+        output_sensor=settings.STIHIA_OUTPUT_SENSOR,
     )
     return Response(content=content, status_code=status, headers=headers)
