@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## v0.1.2 - 2026-04-15
+
+### Added
+
+- Configurable `STIHIA_INPUT_SENSOR` and `STIHIA_OUTPUT_SENSOR` settings for
+  selecting which Stihia sensors inspect prompts and model outputs.
+
+### Changed
+
+- Proxy guardrail checks now use the configured input and output sensor names in
+  both streaming and non-streaming request flows.
+- `.env.example` and README now document sensor configuration, LibreChat
+  registration controls, reverse-proxy deployment settings, and baseline
+  resource sizing guidance.
+
 ## v0.1.1 - 2026-04-07
 
 ### Added
